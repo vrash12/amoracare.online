@@ -1,489 +1,1153 @@
 @extends('layouts.dashboard', ['title' => 'Reports and Analytics'])
 
 @section('content')
-    <div class="panel">
-        <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
-            <div>
-                <h2>Reports and Analytics</h2>
-                <p>View adoption, child profile, donation, and document analytics.</p>
-            </div>
-
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <a href="{{ route('admin.reports.children') }}" class="btn light">Child Report</a>
-                <a href="{{ route('admin.reports.adoption-cases') }}" class="btn light">Adoption Case Report</a>
-                <a href="{{ route('admin.reports.donations') }}" class="btn light">Donation Report</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="panel">
-        <form method="GET" action="{{ route('admin.reports.index') }}"
-              style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end;">
-            <div>
-                <label for="date_from">Date From</label>
-                <input type="date" id="date_from" name="date_from"
-                       value="{{ $dateFrom->format('Y-m-d') }}" style="width: 100%;">
-            </div>
-
-            <div>
-                <label for="date_to">Date To</label>
-                <input type="date" id="date_to" name="date_to"
-                       value="{{ $dateTo->format('Y-m-d') }}" style="width: 100%;">
-            </div>
-
-            <button type="submit" class="btn secondary">Apply Filter</button>
-        </form>
-    </div>
-
     @php
-        $totalChildren = max((int) $childStats['total_children'], 1);
-        $totalCases = max((int) $adoptionStats['total_cases'], 1);
-        $totalDocuments = max((int) $documentStats['total_documents'], 1);
-        $totalDonations = max((int) $donationStats['total_donations'], 1);
+        $totalChildren = (int) ($summary['total_children'] ?? 0);
+        $eligibleChildren = (int) ($summary['eligible_children'] ?? 0);
+        $availableChildren = (int) ($summary['available_children'] ?? 0);
+        $specialNeedsChildren = (int) ($summary['special_needs_children'] ?? 0);
 
-        $eligibleRate = round(($childStats['eligible_children'] / $totalChildren) * 100);
-        $finalizedRate = round(($adoptionStats['finalized_cases'] / $totalCases) * 100);
-        $documentVerifiedRate = round(($documentStats['verified_documents'] / $totalDocuments) * 100);
-        $cashAverage = $donationStats['total_donations'] > 0
-            ? $donationStats['cash_total'] / $donationStats['total_donations']
+        $totalCases = (int) ($summary['total_adoption_cases'] ?? 0);
+        $activeCases = (int) ($summary['active_adoption_cases'] ?? 0);
+        $finalizedCases = (int) ($summary['finalized_adoption_cases'] ?? 0);
+        $cancelledCases = (int) ($summary['cancelled_adoption_cases'] ?? 0);
+
+        $totalDocuments = (int) ($summary['total_documents'] ?? 0);
+        $verifiedDocuments = (int) ($summary['verified_documents'] ?? 0);
+        $pendingDocuments = (int) ($summary['pending_documents'] ?? 0);
+        $rejectedDocuments = (int) ($summary['rejected_documents'] ?? 0);
+        $expiredDocuments = (int) ($summary['expired_documents'] ?? 0);
+
+        $totalDonations = (int) ($summary['total_donations'] ?? 0);
+        $verifiedDonations = (int) ($summary['verified_donations'] ?? 0);
+        $cashDonationTotal = (float) ($summary['cash_donation_total'] ?? 0);
+        $totalDonors = (int) ($summary['total_donors'] ?? 0);
+
+        $eligibleRate = $totalChildren > 0
+            ? round(($eligibleChildren / $totalChildren) * 100)
             : 0;
+
+        $finalizedRate = $totalCases > 0
+            ? round(($finalizedCases / $totalCases) * 100)
+            : 0;
+
+        $verifiedDonationRate = $totalDonations > 0
+            ? round(($verifiedDonations / $totalDonations) * 100)
+            : 0;
+
+        $documentProgress = (int) ($summary['document_progress_percent'] ?? 0);
+
+        $dateRangeLabel = $from->format('M d, Y') . ' – ' . $to->format('M d, Y');
     @endphp
 
-    <div class="cards">
-        <div class="card">
-            <div class="card-title">Total Children</div>
-            <div class="card-value">{{ $childStats['total_children'] }}</div>
-            <small>{{ $eligibleRate }}% eligible for adoption</small>
-        </div>
+    <style>
+        .reports-page {
+            --reports-primary: #8d3d27;
+            --reports-primary-dark: #6f2f1d;
+            --reports-primary-soft: #fff2ec;
+            --reports-blue: #2563eb;
+            --reports-blue-soft: #eff6ff;
+            --reports-green: #15803d;
+            --reports-green-soft: #ecfdf3;
+            --reports-amber: #b45309;
+            --reports-amber-soft: #fff7ed;
+            --reports-red: #b91c1c;
+            --reports-red-soft: #fff1f2;
+            --reports-purple: #7c3aed;
+            --reports-purple-soft: #f5f3ff;
+            --reports-text: #172033;
+            --reports-muted: #667085;
+            --reports-line: #e5e9f0;
+            --reports-surface: #ffffff;
+            --reports-soft: #f7f9fc;
+            display: grid;
+            gap: 18px;
+            color: var(--reports-text);
+        }
 
-        <div class="card">
-            <div class="card-title">Eligible Children</div>
-            <div class="card-value">{{ $childStats['eligible_children'] }}</div>
-            <small>{{ $childStats['under_matching'] }} under matching</small>
-        </div>
+        .reports-page *,
+        .reports-page *::before,
+        .reports-page *::after {
+            box-sizing: border-box;
+        }
 
-        <div class="card">
-            <div class="card-title">Active Adoption Cases</div>
-            <div class="card-value">{{ $adoptionStats['active_cases'] }}</div>
-            <small>{{ $adoptionStats['total_cases'] }} total cases in selected range</small>
-        </div>
+        .reports-hero {
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 24px;
+            align-items: center;
+            padding: 25px;
+            border: 1px solid #ead8d0;
+            border-radius: 23px;
+            background:
+                radial-gradient(circle at 92% 12%, rgba(141, 61, 39, 0.14), transparent 30%),
+                linear-gradient(135deg, #fff9f6 0%, #ffffff 62%, #f8fafc 100%);
+            box-shadow: 0 16px 38px rgba(20, 31, 51, 0.06);
+        }
 
-        <div class="card">
-            <div class="card-title">Finalized Cases</div>
-            <div class="card-value">{{ $adoptionStats['finalized_cases'] }}</div>
-            <small>{{ $finalizedRate }}% finalized rate</small>
-        </div>
-    </div>
+        .reports-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 9px;
+            padding: 7px 11px;
+            border: 1px solid #edc7b8;
+            border-radius: 999px;
+            background: var(--reports-primary-soft);
+            color: var(--reports-primary-dark);
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
 
-    <div class="cards">
-        <div class="card">
-            <div class="card-title">Total Donations</div>
-            <div class="card-value">{{ $donationStats['total_donations'] }}</div>
-            <small>{{ $donationStats['total_donors'] }} recorded donors</small>
-        </div>
+        .reports-hero h1 {
+            margin: 0;
+            color: #101828;
+            font-size: clamp(28px, 3.4vw, 39px);
+            line-height: 1.15;
+        }
 
-        <div class="card">
-            <div class="card-title">Cash Donations</div>
-            <div class="card-value">₱{{ number_format($donationStats['cash_total'], 2) }}</div>
-            <small>Average ₱{{ number_format($cashAverage, 2) }} per donation</small>
-        </div>
+        .reports-hero p {
+            max-width: 760px;
+            margin: 9px 0 0;
+            color: var(--reports-muted);
+            font-size: 14px;
+            line-height: 1.7;
+        }
 
-        <div class="card">
-            <div class="card-title">In-Kind Estimated Value</div>
-            <div class="card-value">₱{{ number_format($donationStats['in_kind_total_value'], 2) }}</div>
-            <small>{{ $donationStats['in_kind_item_count'] }} material items</small>
-        </div>
+        .reports-hero-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
 
-        <div class="card">
-            <div class="card-title">Verified Documents</div>
-            <div class="card-value">{{ $documentStats['verified_documents'] }}</div>
-            <small>{{ $documentVerifiedRate }}% of documents verified</small>
-        </div>
-    </div>
+        .reports-meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border: 1px solid var(--reports-line);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.92);
+            color: #475467;
+            font-size: 11px;
+            font-weight: 850;
+        }
 
-    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
-        <div class="panel">
-            <h2>Monthly Cash Donations</h2>
-            <p style="margin-top: 0;">Cash donation trend based on the selected date range.</p>
-            <div style="height: 320px;">
-                <canvas id="monthlyDonationChart"></canvas>
+        .reports-links {
+            display: grid;
+            gap: 8px;
+            min-width: 215px;
+        }
+
+        .reports-btn {
+            min-height: 41px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 0 13px;
+            border: 1px solid #d0d5dd;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #344054;
+            font-size: 12px;
+            font-weight: 900;
+            text-decoration: none;
+            cursor: pointer;
+            transition: .16s ease;
+        }
+
+        .reports-btn:hover {
+            border-color: #b8c0cc;
+            background: #f9fafb;
+            color: #101828;
+        }
+
+        .reports-btn.is-primary {
+            border-color: var(--reports-primary);
+            background: var(--reports-primary);
+            color: #ffffff;
+        }
+
+        .reports-btn.is-primary:hover {
+            border-color: var(--reports-primary-dark);
+            background: var(--reports-primary-dark);
+            color: #ffffff;
+        }
+
+        .reports-filter-card,
+        .reports-panel {
+            border: 1px solid var(--reports-line);
+            border-radius: 19px;
+            background: var(--reports-surface);
+            box-shadow: 0 11px 27px rgba(20, 31, 51, 0.045);
+        }
+
+        .reports-filter-card {
+            padding: 17px;
+        }
+
+        .reports-filter-form {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(180px, 1fr)) auto auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .reports-field label {
+            display: block;
+            margin-bottom: 7px;
+            color: #344054;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .reports-field input {
+            width: 100%;
+            min-height: 42px;
+            padding: 0 12px;
+            border: 1px solid #d0d5dd;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #101828;
+            font: inherit;
+            outline: none;
+        }
+
+        .reports-field input:focus {
+            border-color: var(--reports-blue);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, .1);
+        }
+
+        .reports-stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 13px;
+        }
+
+        .reports-stat {
+            min-width: 0;
+            padding: 17px;
+            border: 1px solid var(--reports-line);
+            border-radius: 18px;
+            background: #ffffff;
+            box-shadow: 0 10px 24px rgba(20, 31, 51, .04);
+        }
+
+        .reports-stat-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .reports-stat-label {
+            color: var(--reports-muted);
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .055em;
+            text-transform: uppercase;
+        }
+
+        .reports-stat-icon {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border-radius: 12px;
+            background: var(--reports-blue-soft);
+            color: var(--reports-blue);
+            font-size: 18px;
+        }
+
+        .reports-stat.is-green .reports-stat-icon {
+            background: var(--reports-green-soft);
+            color: var(--reports-green);
+        }
+
+        .reports-stat.is-purple .reports-stat-icon {
+            background: var(--reports-purple-soft);
+            color: var(--reports-purple);
+        }
+
+        .reports-stat.is-amber .reports-stat-icon {
+            background: var(--reports-amber-soft);
+            color: var(--reports-amber);
+        }
+
+        .reports-stat-value {
+            margin-top: 11px;
+            color: #101828;
+            font-size: 28px;
+            font-weight: 950;
+            line-height: 1;
+            overflow-wrap: anywhere;
+        }
+
+        .reports-stat-help {
+            margin-top: 6px;
+            color: var(--reports-muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .reports-grid-two {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 15px;
+        }
+
+        .reports-panel {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .reports-panel-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 13px;
+            align-items: flex-start;
+            padding: 17px 18px 13px;
+            border-bottom: 1px solid var(--reports-line);
+        }
+
+        .reports-panel-header h2 {
+            margin: 0;
+            color: #101828;
+            font-size: 17px;
+        }
+
+        .reports-panel-header p {
+            margin: 5px 0 0;
+            color: var(--reports-muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .reports-panel-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 8px;
+            border-radius: 999px;
+            background: var(--reports-soft);
+            color: #475467;
+            font-size: 10px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .reports-chart-wrap {
+            height: 315px;
+            padding: 16px;
+        }
+
+        .reports-breakdown {
+            display: grid;
+            gap: 12px;
+            padding: 16px 18px 18px;
+        }
+
+        .reports-breakdown-row {
+            display: grid;
+            gap: 6px;
+        }
+
+        .reports-breakdown-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: #344054;
+            font-size: 12px;
+        }
+
+        .reports-breakdown-top strong {
+            color: #101828;
+        }
+
+        .reports-progress {
+            height: 8px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #eef1f5;
+        }
+
+        .reports-progress > span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: var(--reports-blue);
+        }
+
+        .reports-progress.is-green > span {
+            background: var(--reports-green);
+        }
+
+        .reports-progress.is-amber > span {
+            background: var(--reports-amber);
+        }
+
+        .reports-table-wrap {
+            overflow-x: auto;
+        }
+
+        .reports-table {
+            width: 100%;
+            min-width: 680px;
+            border-collapse: collapse;
+        }
+
+        .reports-table th,
+        .reports-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #eef1f5;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        .reports-table th {
+            background: #fbfcfe;
+            color: #667085;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .reports-table td {
+            color: #344054;
+            font-size: 11px;
+        }
+
+        .reports-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .reports-code {
+            display: inline-flex;
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+            font-size: 10px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .reports-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: #f2f4f7;
+            color: #475467;
+            font-size: 10px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .reports-empty {
+            padding: 30px 18px;
+            color: var(--reports-muted);
+            text-align: center;
+            font-size: 12px;
+        }
+
+        @media (max-width: 1100px) {
+            .reports-stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 850px) {
+            .reports-hero {
+                grid-template-columns: 1fr;
+            }
+
+            .reports-links {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                min-width: 0;
+            }
+
+            .reports-filter-form {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .reports-grid-two {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .reports-hero {
+                padding: 20px;
+            }
+
+            .reports-links,
+            .reports-filter-form,
+            .reports-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .reports-btn {
+                width: 100%;
+            }
+
+            .reports-chart-wrap {
+                height: 280px;
+            }
+        }
+    </style>
+
+    <div class="reports-page">
+        <section class="reports-hero">
+            <div>
+                <div class="reports-eyebrow">
+                    <i class="bi bi-bar-chart-line"></i>
+                    Administrative analytics
+                </div>
+
+                <h1>Reports and Analytics</h1>
+
+                <p>
+                    Monitor child records, adoption cases, document reviews, and donations
+                    for the selected reporting period.
+                </p>
+
+                <div class="reports-hero-meta">
+                    <span class="reports-meta-pill">
+                        <i class="bi bi-calendar3"></i>
+                        {{ $dateRangeLabel }}
+                    </span>
+
+                    <span class="reports-meta-pill">
+                        <i class="bi bi-shield-check"></i>
+                        Authorized admin view
+                    </span>
+                </div>
             </div>
-        </div>
 
-        <div class="panel">
-            <h2>Monthly Adoption Cases</h2>
-            <p style="margin-top: 0;">Number of adoption cases created per month.</p>
-            <div style="height: 320px;">
-                <canvas id="monthlyCaseChart"></canvas>
+            <div class="reports-links">
+                <a href="{{ route('admin.reports.children', ['from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]) }}" class="reports-btn">
+                    <i class="bi bi-people"></i>
+                    Child report
+                </a>
+
+                <a href="{{ route('admin.reports.adoption-cases', ['from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]) }}" class="reports-btn">
+                    <i class="bi bi-folder2-open"></i>
+                    Case report
+                </a>
+
+                <a href="{{ route('admin.reports.donations', ['from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d')]) }}" class="reports-btn">
+                    <i class="bi bi-heart"></i>
+                    Donation report
+                </a>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px;">
-        <div class="panel">
-            <h2>Adoption Case Status</h2>
-            <div style="height: 320px;">
-                <canvas id="adoptionStatusChart"></canvas>
-            </div>
-        </div>
+        <section class="reports-filter-card">
+            <form method="GET" action="{{ route('admin.reports.index') }}" class="reports-filter-form">
+                <div class="reports-field">
+                    <label for="from">Date from</label>
+                    <input
+                        type="date"
+                        id="from"
+                        name="from"
+                        value="{{ $from->format('Y-m-d') }}"
+                        required
+                    >
+                </div>
 
-        <div class="panel">
-            <h2>Child Eligibility</h2>
-            <div style="height: 320px;">
-                <canvas id="childEligibilityChart"></canvas>
-            </div>
-        </div>
-    </div>
+                <div class="reports-field">
+                    <label for="to">Date to</label>
+                    <input
+                        type="date"
+                        id="to"
+                        name="to"
+                        value="{{ $to->format('Y-m-d') }}"
+                        required
+                    >
+                </div>
 
-    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px;">
-        <div class="panel">
-            <h2>Document Review Status</h2>
-            <div style="height: 320px;">
-                <canvas id="documentStatusChart"></canvas>
-            </div>
-        </div>
+                <button type="submit" class="reports-btn is-primary">
+                    <i class="bi bi-funnel"></i>
+                    Apply filter
+                </button>
 
-        <div class="panel">
-            <h2>Donation Types</h2>
-            <div style="height: 320px;">
-                <canvas id="donationTypeChart"></canvas>
-            </div>
-        </div>
-    </div>
+                <a href="{{ route('admin.reports.index') }}" class="reports-btn">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    Reset
+                </a>
+            </form>
+        </section>
 
-    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px;">
-        <div class="panel">
-            <h2>Adoption Case Status Summary</h2>
+        <section class="reports-stats">
+            <article class="reports-stat">
+                <div class="reports-stat-top">
+                    <span class="reports-stat-label">Total children</span>
+                    <span class="reports-stat-icon"><i class="bi bi-people"></i></span>
+                </div>
+                <div class="reports-stat-value">{{ number_format($totalChildren) }}</div>
+                <div class="reports-stat-help">
+                    {{ $eligibleRate }}% eligible · {{ number_format($availableChildren) }} available
+                </div>
+            </article>
 
-            <div style="display: grid; gap: 10px;">
-                @foreach(\App\Models\AdoptionCase::STATUSES as $status => $label)
-                    @php
-                        $count = $adoptionStats['by_status'][$status] ?? 0;
-                        $percent = $adoptionStats['total_cases'] > 0
-                            ? round(($count / $adoptionStats['total_cases']) * 100)
-                            : 0;
-                    @endphp
+            <article class="reports-stat is-purple">
+                <div class="reports-stat-top">
+                    <span class="reports-stat-label">Adoption cases</span>
+                    <span class="reports-stat-icon"><i class="bi bi-folder2-open"></i></span>
+                </div>
+                <div class="reports-stat-value">{{ number_format($totalCases) }}</div>
+                <div class="reports-stat-help">
+                    {{ number_format($activeCases) }} active · {{ $finalizedRate }}% finalized
+                </div>
+            </article>
 
+            <article class="reports-stat is-green">
+                <div class="reports-stat-top">
+                    <span class="reports-stat-label">Verified documents</span>
+                    <span class="reports-stat-icon"><i class="bi bi-file-earmark-check"></i></span>
+                </div>
+                <div class="reports-stat-value">{{ number_format($verifiedDocuments) }}</div>
+                <div class="reports-stat-help">
+                    {{ $documentProgress }}% of {{ number_format($totalDocuments) }} documents verified
+                </div>
+            </article>
+
+            <article class="reports-stat is-amber">
+                <div class="reports-stat-top">
+                    <span class="reports-stat-label">Cash donations</span>
+                    <span class="reports-stat-icon"><i class="bi bi-cash-stack"></i></span>
+                </div>
+                <div class="reports-stat-value">₱{{ number_format($cashDonationTotal, 2) }}</div>
+                <div class="reports-stat-help">
+                    {{ number_format($totalDonations) }} donations · {{ $verifiedDonationRate }}% verified
+                </div>
+            </article>
+        </section>
+
+        <section class="reports-stats">
+            <article class="reports-stat is-green">
+                <div class="reports-stat-top">
+                    <span class="reports-stat-label">Eligible children</span>
+                    <span class="reports-stat-icon"><i class="bi bi-person-check"></i></span>
+                </div>
+                <div class="reports-stat-value">{{ number_format($eligibleChildren) }}</div>
+                <div class="reports-stat-help">
+                    {{ number_format($specialNeedsChildren) }} children marked with special needs
+                </div>
+            </article>
+
+            <article class="reports-stat">
+                <div class="reports-stat-top">
+                    <span class="reports-stat-label">Case outcomes</span>
+                    <span class="reports-stat-icon"><i class="bi bi-check2-circle"></i></span>
+                </div>
+                <div class="reports-stat-value">{{ number_format($finalizedCases) }}</div>
+                <div class="reports-stat-help">
+                    {{ number_format($cancelledCases) }} cancelled in the selected period
+                </div>
+            </article>
+
+            <article class="reports-stat is-amber">
+                <div class="reports-stat-top">
+                    <span class="reports-stat-label">Documents pending</span>
+                    <span class="reports-stat-icon"><i class="bi bi-hourglass-split"></i></span>
+                </div>
+                <div class="reports-stat-value">{{ number_format($pendingDocuments) }}</div>
+                <div class="reports-stat-help">
+                    {{ number_format($rejectedDocuments) }} rejected · {{ number_format($expiredDocuments) }} expired
+                </div>
+            </article>
+
+            <article class="reports-stat is-purple">
+                <div class="reports-stat-top">
+                    <span class="reports-stat-label">Registered donors</span>
+                    <span class="reports-stat-icon"><i class="bi bi-heart"></i></span>
+                </div>
+                <div class="reports-stat-value">{{ number_format($totalDonors) }}</div>
+                <div class="reports-stat-help">
+                    {{ number_format((int) ($summary['prospective_parents'] ?? 0)) }} prospective parents ·
+                    {{ number_format((int) ($summary['external_reviewers'] ?? 0)) }} reviewers
+                </div>
+            </article>
+        </section>
+
+        <section class="reports-grid-two">
+            <article class="reports-panel">
+                <header class="reports-panel-header">
                     <div>
-                        <div style="display: flex; justify-content: space-between; gap: 12px;">
-                            <span>{{ $label }}</span>
-                            <strong>{{ $count }} <small>({{ $percent }}%)</small></strong>
-                        </div>
-
-                        <div style="height: 8px; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin-top: 6px;">
-                            <div style="height: 100%; width: {{ $percent }}%; background: #2563eb;"></div>
-                        </div>
+                        <h2>Daily adoption cases</h2>
+                        <p>Cases created during the selected reporting period.</p>
                     </div>
-                @endforeach
-            </div>
-        </div>
+                    <span class="reports-panel-badge"><i class="bi bi-graph-up"></i> Trend</span>
+                </header>
+                <div class="reports-chart-wrap">
+                    <canvas id="dailyCasesChart"></canvas>
+                </div>
+            </article>
 
-        <div class="panel">
-            <h2>Child Eligibility Summary</h2>
-
-            <div style="display: grid; gap: 10px;">
-                @foreach(\App\Models\Child::ELIGIBILITY_STATUSES as $status => $label)
-                    @php
-                        $count = $childStats['by_eligibility'][$status] ?? 0;
-                        $percent = $childStats['total_children'] > 0
-                            ? round(($count / $childStats['total_children']) * 100)
-                            : 0;
-                    @endphp
-
+            <article class="reports-panel">
+                <header class="reports-panel-header">
                     <div>
-                        <div style="display: flex; justify-content: space-between; gap: 12px;">
-                            <span>{{ $label }}</span>
-                            <strong>{{ $count }} <small>({{ $percent }}%)</small></strong>
-                        </div>
-
-                        <div style="height: 8px; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin-top: 6px;">
-                            <div style="height: 100%; width: {{ $percent }}%; background: #16a34a;"></div>
-                        </div>
+                        <h2>Daily donations</h2>
+                        <p>Donation count and recorded cash value by day.</p>
                     </div>
-                @endforeach
+                    <span class="reports-panel-badge"><i class="bi bi-cash-coin"></i> Activity</span>
+                </header>
+                <div class="reports-chart-wrap">
+                    <canvas id="dailyDonationsChart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        <section class="reports-grid-two">
+            <article class="reports-panel">
+                <header class="reports-panel-header">
+                    <div>
+                        <h2>Adoption case status</h2>
+                        <p>Distribution of cases by current status.</p>
+                    </div>
+                </header>
+                <div class="reports-chart-wrap">
+                    <canvas id="caseStatusChart"></canvas>
+                </div>
+            </article>
+
+            <article class="reports-panel">
+                <header class="reports-panel-header">
+                    <div>
+                        <h2>Child eligibility</h2>
+                        <p>Eligibility distribution for child records created in range.</p>
+                    </div>
+                </header>
+                <div class="reports-chart-wrap">
+                    <canvas id="childEligibilityChart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        <section class="reports-grid-two">
+            <article class="reports-panel">
+                <header class="reports-panel-header">
+                    <div>
+                        <h2>Document review status</h2>
+                        <p>Current review state of adoption case documents.</p>
+                    </div>
+                </header>
+                <div class="reports-chart-wrap">
+                    <canvas id="documentStatusChart"></canvas>
+                </div>
+            </article>
+
+            <article class="reports-panel">
+                <header class="reports-panel-header">
+                    <div>
+                        <h2>Adoption case types</h2>
+                        <p>Cases grouped according to their adoption category.</p>
+                    </div>
+                </header>
+                <div class="reports-chart-wrap">
+                    <canvas id="caseTypeChart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        <section class="reports-grid-two">
+            <article class="reports-panel">
+                <header class="reports-panel-header">
+                    <div>
+                        <h2>Child case status summary</h2>
+                        <p>Record count and proportion per child case status.</p>
+                    </div>
+                </header>
+
+                <div class="reports-breakdown">
+                    @forelse($childrenByCaseStatus as $row)
+                        @php
+                            $count = (int) $row->total;
+                            $percent = $totalChildren > 0
+                                ? round(($count / $totalChildren) * 100)
+                                : 0;
+                            $label = \App\Models\Child::CASE_STATUSES[$row->case_status]
+                                ?? ucwords(str_replace('_', ' ', (string) $row->case_status));
+                        @endphp
+
+                        <div class="reports-breakdown-row">
+                            <div class="reports-breakdown-top">
+                                <span>{{ $label }}</span>
+                                <strong>{{ number_format($count) }} ({{ $percent }}%)</strong>
+                            </div>
+                            <div class="reports-progress"><span style="width: {{ $percent }}%"></span></div>
+                        </div>
+                    @empty
+                        <div class="reports-empty">No child status records for this period.</div>
+                    @endforelse
+                </div>
+            </article>
+
+            <article class="reports-panel">
+                <header class="reports-panel-header">
+                    <div>
+                        <h2>Donation purpose summary</h2>
+                        <p>Donation records and cash totals grouped by purpose.</p>
+                    </div>
+                </header>
+
+                <div class="reports-breakdown">
+                    @forelse($donationsByPurpose as $row)
+                        @php
+                            $count = (int) $row->total;
+                            $percent = $totalDonations > 0
+                                ? round(($count / $totalDonations) * 100)
+                                : 0;
+                            $label = \App\Models\Donation::PURPOSES[$row->purpose]
+                                ?? ucwords(str_replace('_', ' ', (string) $row->purpose));
+                        @endphp
+
+                        <div class="reports-breakdown-row">
+                            <div class="reports-breakdown-top">
+                                <span>{{ $label }}</span>
+                                <strong>{{ number_format($count) }} · ₱{{ number_format((float) $row->cash_total, 2) }}</strong>
+                            </div>
+                            <div class="reports-progress is-amber"><span style="width: {{ $percent }}%"></span></div>
+                        </div>
+                    @empty
+                        <div class="reports-empty">No donation records for this period.</div>
+                    @endforelse
+                </div>
+            </article>
+        </section>
+
+        <section class="reports-grid-two">
+            <article class="reports-panel">
+                <header class="reports-panel-header">
+                    <div>
+                        <h2>Recent child profiles</h2>
+                        <p>Latest child records created within the selected period.</p>
+                    </div>
+                </header>
+
+                <div class="reports-table-wrap">
+                    <table class="reports-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Child</th>
+                                <th>Status</th>
+                                <th>Eligibility</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($recentChildren as $child)
+                                <tr>
+                                    <td><span class="reports-code">{{ $child->child_code }}</span></td>
+                                    <td>
+                                        <strong>{{ $child->full_name }}</strong>
+                                        @if($child->nickname)
+                                            <div style="color:#667085; margin-top:2px;">{{ $child->nickname }}</div>
+                                        @endif
+                                    </td>
+                                    <td><span class="reports-status">{{ $child->case_status_label }}</span></td>
+                                    <td><span class="reports-status">{{ $child->eligibility_status_label }}</span></td>
+                                    <td>{{ optional($child->created_at)->format('M d, Y') }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5"><div class="reports-empty">No recent child profiles.</div></td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="reports-panel">
+                <header class="reports-panel-header">
+                    <div>
+                        <h2>Recent adoption cases</h2>
+                        <p>Latest adoption cases opened within the selected period.</p>
+                    </div>
+                </header>
+
+                <div class="reports-table-wrap">
+                    <table class="reports-table">
+                        <thead>
+                            <tr>
+                                <th>Case</th>
+                                <th>Child</th>
+                                <th>Parent</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($recentAdoptionCases as $case)
+                                <tr>
+                                    <td><span class="reports-code">{{ $case->case_code }}</span></td>
+                                    <td>{{ $case->child?->full_name ?? 'N/A' }}</td>
+                                    <td>{{ $case->prospectiveParent?->name ?? 'N/A' }}</td>
+                                    <td><span class="reports-status">{{ $case->status_label }}</span></td>
+                                    <td>{{ optional($case->created_at)->format('M d, Y') }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5"><div class="reports-empty">No recent adoption cases.</div></td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+
+        <section class="reports-panel">
+            <header class="reports-panel-header">
+                <div>
+                    <h2>Recent donations</h2>
+                    <p>Latest donations recorded within the selected period.</p>
+                </div>
+            </header>
+
+            <div class="reports-table-wrap">
+                <table class="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Donation</th>
+                            <th>Donor</th>
+                            <th>Type</th>
+                            <th>Purpose</th>
+                            <th>Cash amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($recentDonations as $donation)
+                            <tr>
+                                <td><span class="reports-code">{{ $donation->donation_code }}</span></td>
+                                <td>{{ $donation->donor?->name ?? 'Anonymous / N/A' }}</td>
+                                <td><span class="reports-status">{{ $donation->donation_type_label }}</span></td>
+                                <td>{{ $donation->purpose_label }}</td>
+                                <td>₱{{ number_format((float) $donation->cash_amount, 2) }}</td>
+                                <td><span class="reports-status">{{ $donation->status_label }}</span></td>
+                                <td>{{ optional($donation->donation_date)->format('M d, Y') }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7"><div class="reports-empty">No recent donations.</div></td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
-        </div>
+        </section>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px;">
-        <div class="panel">
-            <h2>Document Review Summary</h2>
-
-            <div class="cards">
-                <div class="card">
-                    <div class="card-title">Total Documents</div>
-                    <div class="card-value">{{ $documentStats['total_documents'] }}</div>
-                </div>
-
-                <div class="card">
-                    <div class="card-title">Pending</div>
-                    <div class="card-value">{{ $documentStats['pending_documents'] }}</div>
-                </div>
-
-                <div class="card">
-                    <div class="card-title">Submitted</div>
-                    <div class="card-value">{{ $documentStats['submitted_documents'] }}</div>
-                </div>
-
-                <div class="card">
-                    <div class="card-title">Verified</div>
-                    <div class="card-value">{{ $documentStats['verified_documents'] }}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h2>Donation Purpose Summary</h2>
-
-            <div style="display: grid; gap: 10px;">
-                @foreach(\App\Models\Donation::PURPOSES as $purpose => $label)
-                    @php
-                        $count = $donationStats['by_purpose'][$purpose] ?? 0;
-                        $percent = $donationStats['total_donations'] > 0
-                            ? round(($count / $donationStats['total_donations']) * 100)
-                            : 0;
-                    @endphp
-
-                    <div>
-                        <div style="display: flex; justify-content: space-between; gap: 12px;">
-                            <span>{{ $label }}</span>
-                            <strong>{{ $count }} <small>({{ $percent }}%)</small></strong>
-                        </div>
-
-                        <div style="height: 8px; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin-top: 6px;">
-                            <div style="height: 100%; width: {{ $percent }}%; background: #f59e0b;"></div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
     <script>
-        const chartColors = [
-            '#2563eb',
-            '#16a34a',
-            '#f59e0b',
-            '#dc2626',
-            '#7c3aed',
-            '#0891b2',
-            '#db2777',
-            '#65a30d',
-            '#9333ea',
-            '#475569'
-        ];
-
-        const monthlyDonationData = @json($monthlyDonationChart);
-        const monthlyCaseData = @json($monthlyCaseChart);
-
-        const adoptionStatusLabels = @json(collect(\App\Models\AdoptionCase::STATUSES)->values());
-        const adoptionStatusData = @json(
-            collect(\App\Models\AdoptionCase::STATUSES)
-                ->keys()
-                ->map(fn ($status) => $adoptionStats['by_status'][$status] ?? 0)
-                ->values()
-        );
-
-        const childEligibilityLabels = @json(collect(\App\Models\Child::ELIGIBILITY_STATUSES)->values());
-        const childEligibilityData = @json(
-            collect(\App\Models\Child::ELIGIBILITY_STATUSES)
-                ->keys()
-                ->map(fn ($status) => $childStats['by_eligibility'][$status] ?? 0)
-                ->values()
-        );
-
-        const documentStatusLabels = @json(collect(\App\Models\AdoptionCaseDocument::STATUSES)->values());
-        const documentStatusData = @json(
-            collect(\App\Models\AdoptionCaseDocument::STATUSES)
-                ->keys()
-                ->map(fn ($status) => $documentStats['by_status'][$status] ?? 0)
-                ->values()
-        );
-
-        const donationTypeLabels = @json(collect(\App\Models\Donation::TYPES)->values());
-        const donationTypeData = @json(
-            collect(\App\Models\Donation::TYPES)
-                ->keys()
-                ->map(fn ($type) => $donationStats['by_type'][$type] ?? 0)
-                ->values()
-        );
-
-        function makeChart(canvasId, config) {
-            const element = document.getElementById(canvasId);
-
-            if (!element) {
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof Chart === 'undefined') {
                 return;
             }
 
-            new Chart(element, config);
-        }
+            const colors = [
+                '#2563eb',
+                '#15803d',
+                '#b45309',
+                '#b91c1c',
+                '#7c3aed',
+                '#0891b2',
+                '#db2777',
+                '#475569'
+            ];
 
-        makeChart('monthlyDonationChart', {
-            type: 'bar',
-            data: {
-                labels: monthlyDonationData.labels ?? [],
-                datasets: [
-                    {
-                        label: 'Cash Donations',
-                        data: monthlyDonationData.cash_totals ?? [],
-                        backgroundColor: '#2563eb',
-                        borderColor: '#1d4ed8',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Donation Count',
-                        data: monthlyDonationData.donation_counts ?? [],
-                        backgroundColor: '#16a34a',
-                        borderColor: '#15803d',
-                        borderWidth: 1,
-                        type: 'line',
-                        yAxisID: 'countAxis'
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Cash Amount'
-                        }
-                    },
-                    countAxis: {
-                        beginAtZero: true,
-                        position: 'right',
-                        grid: {
-                            drawOnChartArea: false
-                        },
-                        title: {
-                            display: true,
-                            text: 'Donation Count'
-                        }
+            const chartData = @json($chartData);
+
+            const defaultPlugins = {
+                legend: {
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8,
+                        font: { size: 11 }
                     }
                 }
-            }
-        });
+            };
 
-        makeChart('monthlyCaseChart', {
-            type: 'line',
-            data: {
-                labels: monthlyCaseData.labels ?? [],
-                datasets: [
-                    {
-                        label: 'Adoption Cases',
-                        data: monthlyCaseData.case_counts ?? [],
+            function createChart(id, config) {
+                const canvas = document.getElementById(id);
+
+                if (!canvas) {
+                    return;
+                }
+
+                new Chart(canvas, config);
+            }
+
+            createChart('dailyCasesChart', {
+                type: 'line',
+                data: {
+                    labels: chartData.dailyCases?.labels ?? [],
+                    datasets: [{
+                        label: 'Adoption cases',
+                        data: chartData.dailyCases?.values ?? [],
                         borderColor: '#7c3aed',
-                        backgroundColor: 'rgba(124, 58, 237, 0.15)',
+                        backgroundColor: 'rgba(124, 58, 237, 0.12)',
                         borderWidth: 2,
+                        pointRadius: 2,
+                        pointHoverRadius: 4,
                         tension: 0.3,
                         fill: true
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    }
-                }
-            }
-        });
-
-        makeChart('adoptionStatusChart', {
-            type: 'bar',
-            data: {
-                labels: adoptionStatusLabels,
-                datasets: [
-                    {
-                        label: 'Cases',
-                        data: adoptionStatusData,
-                        backgroundColor: chartColors
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+                    }]
                 },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: defaultPlugins,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
                         }
                     }
                 }
-            }
-        });
+            });
 
-        makeChart('childEligibilityChart', {
-            type: 'doughnut',
-            data: {
-                labels: childEligibilityLabels,
-                datasets: [
-                    {
-                        data: childEligibilityData,
-                        backgroundColor: chartColors
+            createChart('dailyDonationsChart', {
+                type: 'bar',
+                data: {
+                    labels: chartData.dailyDonations?.labels ?? [],
+                    datasets: [
+                        {
+                            label: 'Donation count',
+                            data: chartData.dailyDonations?.values ?? [],
+                            backgroundColor: 'rgba(21, 128, 61, 0.72)',
+                            borderColor: '#15803d',
+                            borderWidth: 1,
+                            yAxisID: 'countAxis'
+                        },
+                        {
+                            label: 'Cash total',
+                            data: chartData.dailyCashDonations?.values ?? [],
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            type: 'line',
+                            yAxisID: 'cashAxis'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: defaultPlugins,
+                    scales: {
+                        countAxis: {
+                            beginAtZero: true,
+                            position: 'left',
+                            ticks: { precision: 0 },
+                            title: { display: true, text: 'Donation count' }
+                        },
+                        cashAxis: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: 'Cash amount' }
+                        }
                     }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
+                }
+            });
 
-        makeChart('documentStatusChart', {
-            type: 'doughnut',
-            data: {
-                labels: documentStatusLabels,
-                datasets: [
-                    {
-                        data: documentStatusData,
-                        backgroundColor: chartColors
+            createChart('caseStatusChart', {
+                type: 'bar',
+                data: {
+                    labels: chartData.casesByStatus?.labels ?? [],
+                    datasets: [{
+                        label: 'Cases',
+                        data: chartData.casesByStatus?.values ?? [],
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
                     }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
+                }
+            });
 
-        makeChart('donationTypeChart', {
-            type: 'pie',
-            data: {
-                labels: donationTypeLabels,
-                datasets: [
-                    {
-                        data: donationTypeData,
-                        backgroundColor: chartColors
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
+            createChart('childEligibilityChart', {
+                type: 'doughnut',
+                data: {
+                    labels: chartData.childrenByEligibility?.labels ?? [],
+                    datasets: [{
+                        data: chartData.childrenByEligibility?.values ?? [],
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '62%',
+                    plugins: defaultPlugins
+                }
+            });
+
+            createChart('documentStatusChart', {
+                type: 'doughnut',
+                data: {
+                    labels: chartData.documentsByStatus?.labels ?? [],
+                    datasets: [{
+                        data: chartData.documentsByStatus?.values ?? [],
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '62%',
+                    plugins: defaultPlugins
+                }
+            });
+
+            createChart('caseTypeChart', {
+                type: 'pie',
+                data: {
+                    labels: chartData.casesByType?.labels ?? [],
+                    datasets: [{
+                        data: chartData.casesByType?.values ?? [],
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: defaultPlugins
+                }
+            });
         });
     </script>
 @endsection
