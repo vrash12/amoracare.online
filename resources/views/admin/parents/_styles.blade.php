@@ -117,6 +117,34 @@
         resize: vertical;
     }
 
+    .parents-password-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+
+    .parents-password-actions .btn {
+        min-height: 36px;
+        padding: 7px 11px;
+        font-size: 12px;
+    }
+
+    .parents-password-help,
+    .parents-password-status {
+        margin-top: 6px;
+        color: #667085;
+        font-size: 12px;
+    }
+
+    .parents-password-status.is-success {
+        color: #047857;
+    }
+
+    .parents-password-status.is-error {
+        color: #b91c1c;
+    }
+
     .parents-table-wrap {
         overflow-x: auto;
         border: 1px solid #e5e7eb;

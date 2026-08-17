@@ -287,7 +287,11 @@
                 <div class="card">
                     <div class="card-title">Generated At</div>
                     <div class="card-value" style="font-size: 18px;">
-                        {{ $latestRun->generated_at?->format('M d, Y h:i A') ?? 'N/A' }}
+                        @if($latestRun->generated_at)
+                            {{ $latestRun->generated_at->timezone(config('app.display_timezone'))->format('M d, Y h:i A') }} PHT
+                        @else
+                            N/A
+                        @endif
                     </div>
                 </div>
 
@@ -342,7 +346,11 @@
                             </td>
 
                             <td style="padding: 12px;">
-                                {{ $run->generated_at?->format('F d, Y h:i A') ?? 'N/A' }}
+                                @if($run->generated_at)
+                                    {{ $run->generated_at->timezone(config('app.display_timezone'))->format('F d, Y h:i A') }} PHT
+                                @else
+                                    N/A
+                                @endif
                             </td>
 
                             <td style="padding: 12px;">

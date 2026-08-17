@@ -8,7 +8,7 @@
                 <p>Generate filtered reports for child records and adoption eligibility.</p>
             </div>
 
-            <a href="{{ route('admin.reports.children.export') }}" class="btn">
+            <a href="{{ route('admin.reports.children.export', request()->query()) }}" class="btn">
                 Download CSV
             </a>
         </div>
@@ -16,7 +16,19 @@
 
     <div class="panel">
         <form method="GET" action="{{ route('admin.reports.children') }}"
-              style="display: grid; grid-template-columns: 220px 220px auto; gap: 12px; align-items: end;">
+              style="display: grid; grid-template-columns: repeat(2, minmax(150px, 1fr)) repeat(2, minmax(180px, 1fr)) auto; gap: 12px; align-items: end;">
+            <div>
+                <label for="from">Date From</label>
+                <input type="date" id="from" name="from"
+                       value="{{ $from->format('Y-m-d') }}" style="width: 100%;">
+            </div>
+
+            <div>
+                <label for="to">Date To</label>
+                <input type="date" id="to" name="to"
+                       value="{{ $to->format('Y-m-d') }}" style="width: 100%;">
+            </div>
+
             <div>
                 <label for="case_status">Case Status</label>
                 <select id="case_status" name="case_status" style="width: 100%;">

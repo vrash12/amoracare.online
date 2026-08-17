@@ -170,6 +170,7 @@
         @if($profile)
             <section class="panel">
                 <h2>Readiness Scores</h2>
+                <p class="muted">Scores range from 0 to 100; a higher score means better assessment performance and results.</p>
 
                 <div class="parents-score-grid">
                     <div class="parents-score-box">

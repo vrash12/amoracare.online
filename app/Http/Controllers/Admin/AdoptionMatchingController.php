@@ -9,6 +9,7 @@ use App\Models\AdoptionMatchingRun;
 use App\Models\Child;
 use App\Models\User;
 use App\Services\AdoptionMatching\GaleShapleyMatcher;
+use App\Services\ExternalReviewerAccessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -225,7 +226,10 @@ public function run(
         ]);
     }
 
-    public function createCase(AdoptionMatchingResult $result): RedirectResponse
+    public function createCase(
+        AdoptionMatchingResult $result,
+        ExternalReviewerAccessService $reviewerAccessService
+    ): RedirectResponse
     {
         $this->authorizeAdmin();
 
@@ -233,7 +237,7 @@ public function run(
             return back()->with('error', 'Only recommended matches can be converted into adoption cases.');
         }
 
-        DB::transaction(function () use ($result) {
+        DB::transaction(function () use ($result, $reviewerAccessService) {
             $case = AdoptionCase::create([
                 'case_code' => $this->generateCaseCode(),
                 'child_id' => $result->child_id,
@@ -266,6 +270,11 @@ public function run(
                 'created_by' => Auth::id(),
                 'updated_by' => Auth::id(),
             ]);
+
+            $reviewerAccessService->authorizeCaseForActiveReviewers(
+                $case,
+                Auth::id()
+            );
 
             $result->update([
                 'status' => 'converted_to_case',

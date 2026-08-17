@@ -182,11 +182,12 @@ class DonationController extends Controller
         $validated = $request->validate([
             'donor.name' => ['required', 'string', 'max:150'],
             'donor.email' => ['nullable', 'email', 'max:150'],
-            'donor.phone_number' => ['nullable', 'string', 'max:30'],
+            'donor.phone_number' => ['nullable', 'string', 'max:30', 'regex:/^[0-9]+$/'],
 
             'donation.donation_type' => ['required', Rule::in(array_keys(Donation::TYPES))],
             'donation.donation_date' => ['required', 'date'],
             'donation.purpose' => ['required', Rule::in(array_keys(Donation::PURPOSES))],
+            'donation.allocation_notes' => ['required_if:donation.purpose,other', 'nullable', 'string', 'max:255'],
             'donation.cash_amount' => ['nullable', 'numeric', 'min:0'],
             'donation.payment_method' => ['nullable', Rule::in(array_keys(Donation::PAYMENT_METHODS))],
             'donation.remarks' => ['nullable', 'string'],
@@ -197,6 +198,9 @@ class DonationController extends Controller
             'items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.estimated_unit_value' => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'donor.phone_number.regex' => 'The phone number may contain numbers only.',
+            'donation.allocation_notes.required_if' => 'Please specify the donation purpose when Other is selected.',
         ]);
 
         $type = $validated['donation']['donation_type'];
@@ -228,6 +232,10 @@ class DonationController extends Controller
             $validated['donation']['cash_amount'] = null;
             $validated['donation']['payment_method'] = null;
             $validated['donation']['reference_number'] = null;
+        }
+
+        if ($validated['donation']['purpose'] !== 'other') {
+            $validated['donation']['allocation_notes'] = null;
         }
 
         return $validated;

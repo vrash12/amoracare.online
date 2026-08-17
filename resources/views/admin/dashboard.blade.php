@@ -5,22 +5,22 @@
     <div class="cards">
         <div class="card">
             <div class="card-title">Registered Users</div>
-            <div class="card-value">0</div>
+            <div class="card-value">{{ number_format($registeredUsersCount) }}</div>
         </div>
 
         <div class="card">
             <div class="card-title">Adoption Cases</div>
-            <div class="card-value">0</div>
+            <div class="card-value">{{ number_format($adoptionCasesCount) }}</div>
         </div>
 
         <div class="card">
             <div class="card-title">Pending Documents</div>
-            <div class="card-value">0</div>
+            <div class="card-value">{{ number_format($pendingDocumentsCount) }}</div>
         </div>
 
         <div class="card">
             <div class="card-title">Donation Records</div>
-            <div class="card-value">0</div>
+            <div class="card-value">{{ number_format($donationRecordsCount) }}</div>
         </div>
     </div>
 
@@ -37,9 +37,9 @@
 
         <div class="quick-actions">
             <a href="{{ route('admin.users.index') }}" class="btn">Manage Users</a>
-            <a href="#" class="btn secondary">Create Adoption Case</a>
-            <a href="#" class="btn secondary">Record Donation</a>
-            <a href="#" class="btn light">Generate Report</a>
+            <a href="{{ route('admin.adoption-cases.create') }}" class="btn secondary">Create Adoption Case</a>
+            <a href="{{ route('admin.donations.create') }}" class="btn secondary">Record Donation</a>
+            <a href="{{ route('admin.reports.index') }}" class="btn light">Generate Report</a>
         </div>
     </div>
 

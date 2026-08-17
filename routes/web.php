@@ -16,6 +16,8 @@ use App\Http\Controllers\Admin\AdoptionMatchingController;
 use App\Http\Controllers\Reviewer\ReviewerDashboardController;
 use App\Http\Controllers\Reviewer\AuthorizedCaseController;
 use App\Http\Controllers\Admin\ParentController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -73,33 +75,33 @@ Route::middleware(['auth', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
-        Route::get('/dashboard', function () {
-            return view('admin.dashboard');
-        })->name('dashboard');
-Route::get('/matching', [AdoptionMatchingController::class, 'index'])
-    ->name('matching.index');
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])
+            ->name('dashboard');
 
-Route::post('/matching/run', [AdoptionMatchingController::class, 'run'])
-    ->name('matching.run');
+        Route::get('/matching', [AdoptionMatchingController::class, 'index'])
+            ->name('matching.index');
 
-Route::get('/matching/{matching}', [AdoptionMatchingController::class, 'show'])
-    ->name('matching.show');
+        Route::post('/matching/run', [AdoptionMatchingController::class, 'run'])
+            ->name('matching.run');
 
-    
-Route::resource('users', UserController::class);
-Route::resource('parents', ParentController::class);
-Route::resource('children', ChildController::class);
-Route::post('/matching/results/{result}/create-case', [AdoptionMatchingController::class, 'createCase'])
-    ->name('matching.create-case');
+        Route::get('/matching/{matching}', [AdoptionMatchingController::class, 'show'])
+            ->name('matching.show');
+
         Route::resource('users', UserController::class);
+        Route::resource('parents', ParentController::class);
         Route::resource('children', ChildController::class);
+        Route::post('/matching/results/{result}/create-case', [AdoptionMatchingController::class, 'createCase'])
+            ->name('matching.create-case');
         Route::resource('adoption-cases', AdoptionCaseController::class);
         Route::post('/adoption-cases/{adoptionCase}/notes', [AdoptionCaseController::class, 'storeNote'])
-    ->name('adoption-cases.notes.store');
+            ->name('adoption-cases.notes.store');
 
-Route::put('/adoption-cases/{adoptionCase}/documents/{document}', [AdoptionCaseController::class, 'updateDocument'])
-    ->name('adoption-cases.documents.update');
+        Route::put('/adoption-cases/{adoptionCase}/documents/{document}', [AdoptionCaseController::class, 'updateDocument'])
+            ->name('adoption-cases.documents.update');
         Route::resource('donations', DonationController::class);
+
+        Route::get('/audit-logs', [AuditLogController::class, 'index'])
+            ->name('audit-logs.index');
 
         Route::prefix('reports')
             ->name('reports.')
@@ -141,20 +143,15 @@ Route::middleware(['auth', 'role:prospective_parent'])
         Route::get('/documents/{document}/download', [ParentDocumentController::class, 'download'])
             ->name('documents.download');
 
-            Route::get('/ai-legal-guidance', [ParentAiGuidanceController::class, 'index'])
-    ->name('ai.index');
+        Route::get('/ai-legal-guidance', [ParentAiGuidanceController::class, 'index'])
+            ->name('ai.index');
 
-Route::post('/ai-legal-guidance/chat', [ParentAiGuidanceController::class, 'chat'])
-    ->name('ai.chat');
+        Route::post('/ai-legal-guidance/chat', [ParentAiGuidanceController::class, 'chat'])
+            ->name('ai.chat');
 
-Route::post('/ai-legal-guidance/clear', [ParentAiGuidanceController::class, 'clear'])
-    ->name('ai.clear');
+        Route::post('/ai-legal-guidance/clear', [ParentAiGuidanceController::class, 'clear'])
+            ->name('ai.clear');
     });
-/*
-|--------------------------------------------------------------------------
-| DSWD/RACCO External Reviewer Routes
-|--------------------------------------------------------------------------
-*/
 
 /*
 |--------------------------------------------------------------------------

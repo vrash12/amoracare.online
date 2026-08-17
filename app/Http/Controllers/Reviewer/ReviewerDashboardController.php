@@ -4,14 +4,16 @@ namespace App\Http\Controllers\Reviewer;
 
 use App\Http\Controllers\Controller;
 use App\Models\ExternalReviewerCaseAccess;
+use App\Services\ExternalReviewerAccessService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class ReviewerDashboardController extends Controller
 {
-    public function index(): View
+    public function index(ExternalReviewerAccessService $reviewerAccessService): View
     {
         $user = Auth::user();
+        $reviewerAccessService->ensureReviewerCanAccessExistingCases($user);
 
         $baseQuery = ExternalReviewerCaseAccess::query()
             ->where('reviewer_id', $user->id)

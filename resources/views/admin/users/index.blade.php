@@ -7,7 +7,7 @@
         $statusOptions = [
             'active' => 'Active',
             'inactive' => 'Inactive',
-            'suspended' => 'Suspended',
+            'pending' => 'Pending',
         ];
 
         $currentSearch = request('search');
@@ -24,13 +24,13 @@
 
         $activeUsersCount = $visibleUsers->where('status', 'active')->count();
         $inactiveUsersCount = $visibleUsers->where('status', 'inactive')->count();
-        $suspendedUsersCount = $visibleUsers->where('status', 'suspended')->count();
+        $pendingUsersCount = $visibleUsers->where('status', 'pending')->count();
 
         $statusBadgeClass = function ($status) {
             return match ($status) {
                 'active' => 'badge-green',
                 'inactive' => 'badge-gray',
-                'suspended' => 'badge-red',
+                'pending' => 'badge-yellow',
                 default => 'badge-yellow',
             };
         };
@@ -479,9 +479,9 @@
             </div>
 
             <div class="users-stat-card">
-                <div class="users-stat-label">Suspended On This Page</div>
-                <div class="users-stat-value">{{ $suspendedUsersCount }}</div>
-                <div class="users-stat-help">Visible suspended accounts</div>
+                <div class="users-stat-label">Pending On This Page</div>
+                <div class="users-stat-value">{{ $pendingUsersCount }}</div>
+                <div class="users-stat-help">Visible pending accounts</div>
             </div>
         </section>
 

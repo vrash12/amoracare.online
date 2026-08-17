@@ -98,7 +98,7 @@ class ParentController extends Controller
         $statuses = [
             'active' => 'Active',
             'inactive' => 'Inactive',
-            'suspended' => 'Suspended',
+            'pending' => 'Pending',
         ];
 
         return view('admin.parents.index', compact(
@@ -135,7 +135,7 @@ class ParentController extends Controller
         $statuses = [
             'active' => 'Active',
             'inactive' => 'Inactive',
-            'suspended' => 'Suspended',
+            'pending' => 'Pending',
         ];
 
         return view('admin.parents.create', compact('parent', 'profile', 'statuses'));
@@ -220,7 +220,7 @@ class ParentController extends Controller
         $statuses = [
             'active' => 'Active',
             'inactive' => 'Inactive',
-            'suspended' => 'Suspended',
+            'pending' => 'Pending',
         ];
 
         return view('admin.parents.edit', compact('parent', 'profile', 'statuses'));
@@ -289,12 +289,13 @@ class ParentController extends Controller
                 Rule::unique('users', 'email')->ignore($parent?->id),
             ],
             'phone_number' => ['nullable', 'string', 'max:50'],
-            'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
+            'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],
 
             'password' => [
                 $isUpdate ? 'nullable' : 'required',
                 'string',
                 'min:8',
+                'max:255',
                 'confirmed',
             ],
 

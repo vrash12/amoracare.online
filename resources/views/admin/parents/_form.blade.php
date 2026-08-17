@@ -81,8 +81,25 @@
                 type="password"
                 id="password"
                 name="password"
+                minlength="8"
+                maxlength="255"
+                autocomplete="new-password"
+                aria-describedby="password_help password_status"
                 @if(!$isEdit) required @endif
             >
+            <div class="parents-password-help" id="password_help">
+                Use at least 8 characters, or generate a secure 16-character password.
+            </div>
+            <div class="parents-password-actions">
+                <button type="button" class="btn light" id="generate_parent_password">
+                    <i class="bi bi-stars"></i>
+                    Generate Password
+                </button>
+                <button type="button" class="btn light" id="toggle_parent_password" aria-pressed="false">
+                    <i class="bi bi-eye"></i>
+                    <span>Show Password</span>
+                </button>
+            </div>
             @error('password')
                 <div class="parents-error">{{ $message }}</div>
             @enderror
@@ -96,8 +113,13 @@
                 type="password"
                 id="password_confirmation"
                 name="password_confirmation"
+                minlength="8"
+                maxlength="255"
+                autocomplete="new-password"
+                aria-describedby="password_status"
                 @if(!$isEdit) required @endif
             >
+            <div class="parents-password-status" id="password_status" aria-live="polite"></div>
         </div>
     </div>
 
@@ -190,6 +212,7 @@
 
 <div class="parents-form-section">
     <h3>Assessment Scores</h3>
+    <p class="muted">Scores range from 0 to 100; a higher score means better assessment performance and results.</p>
 
     <div class="parents-score-grid">
         <div class="parents-field">
@@ -268,3 +291,106 @@
         Cancel
     </a>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const password = document.getElementById('password');
+        const confirmation = document.getElementById('password_confirmation');
+        const generateButton = document.getElementById('generate_parent_password');
+        const toggleButton = document.getElementById('toggle_parent_password');
+        const status = document.getElementById('password_status');
+
+        if (!password || !confirmation || !generateButton || !toggleButton || !status) {
+            return;
+        }
+
+        function randomIndex(limit) {
+            const maximum = Math.floor(0x100000000 / limit) * limit;
+            const value = new Uint32Array(1);
+
+            do {
+                window.crypto.getRandomValues(value);
+            } while (value[0] >= maximum);
+
+            return value[0] % limit;
+        }
+
+        function randomCharacter(characters) {
+            return characters[randomIndex(characters.length)];
+        }
+
+        function generatePassword() {
+            const groups = [
+                'ABCDEFGHJKLMNPQRSTUVWXYZ',
+                'abcdefghijkmnopqrstuvwxyz',
+                '23456789',
+                '!@#$%^&*_-+=?'
+            ];
+            const allCharacters = groups.join('');
+            const characters = groups.map(randomCharacter);
+
+            while (characters.length < 16) {
+                characters.push(randomCharacter(allCharacters));
+            }
+
+            for (let index = characters.length - 1; index > 0; index -= 1) {
+                const swapIndex = randomIndex(index + 1);
+                [characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
+            }
+
+            return characters.join('');
+        }
+
+        function setPasswordVisibility(isVisible) {
+            const inputType = isVisible ? 'text' : 'password';
+            password.type = inputType;
+            confirmation.type = inputType;
+            toggleButton.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
+            toggleButton.querySelector('i').className = isVisible ? 'bi bi-eye-slash' : 'bi bi-eye';
+            toggleButton.querySelector('span').textContent = isVisible ? 'Hide Password' : 'Show Password';
+        }
+
+        function validateConfirmation() {
+            status.classList.remove('is-success', 'is-error');
+            confirmation.setCustomValidity('');
+
+            if (!password.value && !confirmation.value) {
+                status.textContent = '';
+                return;
+            }
+
+            if (password.value !== confirmation.value) {
+                confirmation.setCustomValidity('Passwords do not match.');
+                status.textContent = 'Passwords do not match.';
+                status.classList.add('is-error');
+                return;
+            }
+
+            status.textContent = 'Passwords match.';
+            status.classList.add('is-success');
+        }
+
+        generateButton.addEventListener('click', function () {
+            if (!window.crypto || typeof window.crypto.getRandomValues !== 'function') {
+                status.textContent = 'Secure password generation is not supported by this browser.';
+                status.classList.add('is-error');
+                return;
+            }
+
+            const generatedPassword = generatePassword();
+            password.value = generatedPassword;
+            confirmation.value = generatedPassword;
+            setPasswordVisibility(true);
+            validateConfirmation();
+            password.focus();
+            password.select();
+        });
+
+        toggleButton.addEventListener('click', function () {
+            setPasswordVisibility(password.type === 'password');
+        });
+
+        password.addEventListener('input', validateConfirmation);
+        confirmation.addEventListener('input', validateConfirmation);
+    });
+</script>

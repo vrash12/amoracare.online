@@ -420,7 +420,7 @@
     .children-page-disabled { background: #f9fafb; color: #98a2b3; cursor: not-allowed; }
 
     .children-modal[hidden] { display: none !important; }
-    .children-modal { position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; padding: 20px; }
+    .children-modal { --blue: #2563eb; --green: #15803d; --red: #b91c1c; --line: #e5e9f0; --muted: #667085; position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; padding: 20px; }
     .children-modal-backdrop { position: absolute; inset: 0; border: 0; background: rgba(15,23,42,.64); backdrop-filter: blur(5px); }
     .children-modal-dialog { position: relative; z-index: 1; width: min(100%, 570px); max-height: min(88vh, 720px); overflow-y: auto; border: 1px solid #e4e7ec; border-radius: 22px; background: #fff; box-shadow: 0 28px 70px rgba(15,23,42,.28); }
     .children-modal-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; padding: 20px 21px 16px; border-bottom: 1px solid var(--line); }

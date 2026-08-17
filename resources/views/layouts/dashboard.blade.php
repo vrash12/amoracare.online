@@ -145,12 +145,14 @@
                         <span class="nav-text">Reports</span>
                     </a>
 
-                    <a href="#" class="sidebar-link">
+                    <a href="{{ route('admin.audit-logs.index') }}"
+                       class="sidebar-link {{ request()->routeIs('admin.audit-logs.*') ? 'active' : '' }}">
                         <span class="nav-icon">
                             <i class="bi bi-shield-check"></i>
                         </span>
                         <span class="nav-text">Audit Logs</span>
                     </a>
+
                 @endif
 
                 {{-- PROSPECTIVE PARENT MENU --}}

@@ -8,6 +8,7 @@ use App\Models\AdoptionCaseDocument;
 use App\Models\AdoptionCaseNote;
 use App\Models\Child;
 use App\Models\User;
+use App\Services\ExternalReviewerAccessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -115,13 +116,16 @@ class AdoptionCaseController extends Controller
     }
 
 
-public function store(Request $request): RedirectResponse
+public function store(
+    Request $request,
+    ExternalReviewerAccessService $reviewerAccessService
+): RedirectResponse
 {
     $this->authorizeAdmin();
 
     $validated = $this->validateAdoptionCase($request);
 
-    DB::transaction(function () use ($validated) {
+    DB::transaction(function () use ($validated, $reviewerAccessService) {
         $validated['case_code'] = $this->generateCaseCode();
         $validated['created_by'] = Auth::id();
         $validated['updated_by'] = Auth::id();
@@ -147,6 +151,11 @@ public function store(Request $request): RedirectResponse
             'created_by' => Auth::id(),
             'updated_by' => Auth::id(),
         ]);
+
+        $reviewerAccessService->authorizeCaseForActiveReviewers(
+            $adoptionCase,
+            Auth::id()
+        );
     });
 
     return redirect()

@@ -11,6 +11,7 @@ use App\Models\DonationItem;
 use App\Models\Donor;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -379,45 +380,11 @@ class ReportController extends Controller
         $caseType = $request->input('case_type');
         $priority = $request->input('priority');
 
-        $casesQuery = AdoptionCase::with([
-                'child',
-                'prospectiveParent',
-                'assignedSocialWorker',
-                'documents',
-                'creator',
-                'updater',
-            ])
-            ->whereBetween('created_at', [$from, $to]);
+        $casesQuery = $this->adoptionCasesReportQuery($request, $from, $to);
 
-        if ($search) {
-            $casesQuery->where(function ($query) use ($search) {
-                $query->where('case_code', 'like', "%{$search}%")
-                    ->orWhereHas('child', function ($childQuery) use ($search) {
-                        $childQuery->where('child_code', 'like', "%{$search}%")
-                            ->orWhere('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('prospectiveParent', function ($parentQuery) use ($search) {
-                        $parentQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($status) {
-            $casesQuery->where('status', $status);
-        }
-
-        if ($caseType) {
-            $casesQuery->where('case_type', $caseType);
-        }
-
-        if ($priority) {
-            $casesQuery->where('priority', $priority);
-        }
-
-        $adoptionCases = $casesQuery
-            ->latest()
+        $adoptionCases = (clone $casesQuery)
+            ->orderByDesc('opened_at')
+            ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
 
@@ -432,7 +399,7 @@ class ReportController extends Controller
         $statuses = AdoptionCase::STATUSES;
         $priorities = AdoptionCase::PRIORITIES;
 
-        return view('admin.reports.adoption-cases', compact(
+        return view('admin.reports.adoption_cases', compact(
             'from',
             'to',
             'adoptionCases',
@@ -458,39 +425,11 @@ class ReportController extends Controller
         $purpose = $request->input('purpose');
         $status = $request->input('status');
 
-        $donationsQuery = Donation::with(['donor', 'items', 'encoder', 'updater'])
-            ->whereBetween('donation_date', [
-                $from->toDateString(),
-                $to->toDateString(),
-            ]);
+        $donationsQuery = $this->donationsReportQuery($request, $from, $to);
 
-        if ($search) {
-            $donationsQuery->where(function ($query) use ($search) {
-                $query->where('donation_code', 'like', "%{$search}%")
-                    ->orWhere('receipt_number', 'like', "%{$search}%")
-                    ->orWhere('reference_number', 'like', "%{$search}%")
-                    ->orWhereHas('donor', function ($donorQuery) use ($search) {
-                        $donorQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('phone_number', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($donationType) {
-            $donationsQuery->where('donation_type', $donationType);
-        }
-
-        if ($purpose) {
-            $donationsQuery->where('purpose', $purpose);
-        }
-
-        if ($status) {
-            $donationsQuery->where('status', $status);
-        }
-
-        $donations = $donationsQuery
-            ->latest()
+        $donations = (clone $donationsQuery)
+            ->orderByDesc('donation_date')
+            ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
 
@@ -537,6 +476,7 @@ class ReportController extends Controller
 
         return response()->streamDownload(function () use ($from, $to) {
             $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, [
                 'Child Code',
@@ -552,7 +492,7 @@ class ReportController extends Controller
                 'Health Status',
                 'Educational Level',
                 'Created At',
-            ]);
+            ], ',', '"', '');
 
             Child::query()
                 ->whereBetween('created_at', [$from, $to])
@@ -573,13 +513,13 @@ class ReportController extends Controller
                             $child->health_status,
                             $child->educational_level,
                             optional($child->created_at)->format('Y-m-d H:i:s'),
-                        ]);
+                        ], ',', '"', '');
                     }
                 });
 
             fclose($handle);
         }, $filename, [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 
@@ -588,11 +528,13 @@ class ReportController extends Controller
         $this->authorizeAdmin();
 
         [$from, $to] = $this->resolveDateRange($request);
+        $casesQuery = $this->adoptionCasesReportQuery($request, $from, $to);
 
         $filename = 'amoracare_adoption_cases_report_' . now()->format('Ymd_His') . '.csv';
 
-        return response()->streamDownload(function () use ($from, $to) {
+        return response()->streamDownload(function () use ($casesQuery) {
             $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, [
                 'Case Code',
@@ -608,12 +550,10 @@ class ReportController extends Controller
                 'Closed At',
                 'Document Progress',
                 'Created At',
-            ]);
+            ], ',', '"', '');
 
-            AdoptionCase::with(['child', 'prospectiveParent', 'assignedSocialWorker', 'documents'])
-                ->whereBetween('created_at', [$from, $to])
-                ->latest()
-                ->chunk(200, function ($cases) use ($handle) {
+            (clone $casesQuery)
+                ->chunkById(200, function ($cases) use ($handle) {
                     foreach ($cases as $case) {
                         fputcsv($handle, [
                             $case->case_code,
@@ -629,13 +569,13 @@ class ReportController extends Controller
                             optional($case->closed_at)->format('Y-m-d'),
                             $case->document_progress,
                             optional($case->created_at)->format('Y-m-d H:i:s'),
-                        ]);
+                        ], ',', '"', '');
                     }
                 });
 
             fclose($handle);
         }, $filename, [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 
@@ -644,11 +584,13 @@ class ReportController extends Controller
         $this->authorizeAdmin();
 
         [$from, $to] = $this->resolveDateRange($request);
+        $donationsQuery = $this->donationsReportQuery($request, $from, $to);
 
         $filename = 'amoracare_donations_report_' . now()->format('Ymd_His') . '.csv';
 
-        return response()->streamDownload(function () use ($from, $to) {
+        return response()->streamDownload(function () use ($donationsQuery) {
             $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, [
                 'Donation Code',
@@ -667,15 +609,10 @@ class ReportController extends Controller
                 'Estimated In-Kind Total',
                 'Encoded By',
                 'Created At',
-            ]);
+            ], ',', '"', '');
 
-            Donation::with(['donor', 'items', 'encoder'])
-                ->whereBetween('donation_date', [
-                    $from->toDateString(),
-                    $to->toDateString(),
-                ])
-                ->latest()
-                ->chunk(200, function ($donations) use ($handle) {
+            (clone $donationsQuery)
+                ->chunkById(200, function ($donations) use ($handle) {
                     foreach ($donations as $donation) {
                         $items = $donation->items->map(function ($item) {
                             return $item->item_name . ' - ' . $item->quantity . ' ' . $item->unit;
@@ -698,21 +635,88 @@ class ReportController extends Controller
                             $donation->estimated_in_kind_total,
                             $donation->encoder?->name,
                             optional($donation->created_at)->format('Y-m-d H:i:s'),
-                        ]);
+                        ], ',', '"', '');
                     }
                 });
 
             fclose($handle);
         }, $filename, [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    private function adoptionCasesReportQuery(Request $request, Carbon $from, Carbon $to): Builder
+    {
+        $search = trim((string) $request->input('search', ''));
+        $status = $request->input('status');
+        $caseType = $request->input('case_type');
+        $priority = $request->input('priority');
+
+        return AdoptionCase::with([
+                'child',
+                'prospectiveParent',
+                'assignedSocialWorker',
+                'documents',
+                'creator',
+                'updater',
+            ])
+            ->where(function ($query) use ($from, $to) {
+                $query->whereBetween('opened_at', [$from->toDateString(), $to->toDateString()])
+                    ->orWhere(function ($fallbackQuery) use ($from, $to) {
+                        $fallbackQuery->whereNull('opened_at')
+                            ->whereBetween('created_at', [$from, $to]);
+                    });
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->where('case_code', 'like', "%{$search}%")
+                        ->orWhereHas('child', function ($childQuery) use ($search) {
+                            $childQuery->where('child_code', 'like', "%{$search}%")
+                                ->orWhere('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('prospectiveParent', function ($parentQuery) use ($search) {
+                            $parentQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when(array_key_exists((string) $status, AdoptionCase::STATUSES), fn ($query) => $query->where('status', $status))
+            ->when(array_key_exists((string) $caseType, AdoptionCase::CASE_TYPES), fn ($query) => $query->where('case_type', $caseType))
+            ->when(array_key_exists((string) $priority, AdoptionCase::PRIORITIES), fn ($query) => $query->where('priority', $priority));
+    }
+
+    private function donationsReportQuery(Request $request, Carbon $from, Carbon $to): Builder
+    {
+        $search = trim((string) $request->input('search', ''));
+        $donationType = $request->input('donation_type');
+        $purpose = $request->input('purpose');
+        $status = $request->input('status');
+
+        return Donation::with(['donor', 'items', 'encoder', 'updater'])
+            ->whereBetween('donation_date', [$from->toDateString(), $to->toDateString()])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->where('donation_code', 'like', "%{$search}%")
+                        ->orWhere('receipt_number', 'like', "%{$search}%")
+                        ->orWhere('reference_number', 'like', "%{$search}%")
+                        ->orWhereHas('donor', function ($donorQuery) use ($search) {
+                            $donorQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%")
+                                ->orWhere('phone_number', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when(array_key_exists((string) $donationType, Donation::TYPES), fn ($query) => $query->where('donation_type', $donationType))
+            ->when(array_key_exists((string) $purpose, Donation::PURPOSES), fn ($query) => $query->where('purpose', $purpose))
+            ->when(array_key_exists((string) $status, Donation::STATUSES), fn ($query) => $query->where('status', $status));
     }
 
     private function resolveDateRange(Request $request): array
     {
         $from = $request->filled('from')
             ? Carbon::parse($request->input('from'))->startOfDay()
-            : now()->startOfMonth();
+            : now()->startOfYear();
 
         $to = $request->filled('to')
             ? Carbon::parse($request->input('to'))->endOfDay()

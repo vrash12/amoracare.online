@@ -34,7 +34,7 @@
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
             <p><strong>Donation Type:</strong><br>{{ $donation->donation_type_label }}</p>
             <p><strong>Date:</strong><br>{{ $donation->donation_date?->format('F d, Y') }}</p>
-            <p><strong>Purpose:</strong><br>{{ $donation->purpose_label }}</p>
+            <p><strong>Purpose:</strong><br>{{ $donation->purpose_label }}@if($donation->purpose === 'other' && $donation->allocation_notes) — {{ $donation->allocation_notes }}@endif</p>
             <p><strong>Status:</strong><br>{{ $donation->status_label }}</p>
             <p><strong>Cash Amount:</strong><br>{{ $donation->cash_amount ? '₱' . number_format($donation->cash_amount, 2) : 'N/A' }}</p>
             <p><strong>Payment Method:</strong><br>{{ $donation->payment_method ?? 'N/A' }}</p>

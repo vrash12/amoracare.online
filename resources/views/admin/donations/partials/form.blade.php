@@ -372,7 +372,12 @@
                     type="text"
                     name="donor[phone_number]"
                     value="{{ old('donor.phone_number', $donor?->phone_number) }}"
-                    placeholder="Optional"
+                    placeholder="Numbers only (optional)"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    maxlength="30"
+                    title="Enter numbers only."
+                    data-numeric-only
                 >
                 @error('donor.phone_number')
                     <div class="error-text">{{ $message }}</div>
@@ -414,16 +419,33 @@
                 @enderror
             </div>
 
+            @php($selectedPurpose = old('donation.purpose', $donation?->purpose ?? 'general_support'))
+
             <div class="form-field">
                 <label>Purpose <span class="required">*</span></label>
-                <select name="donation[purpose]" required>
+                <select name="donation[purpose]" id="donationPurpose" required>
                     @foreach($purposes as $value => $label)
-                        <option value="{{ $value }}" @selected(old('donation.purpose', $donation?->purpose ?? 'general_support') === $value)>
+                        <option value="{{ $value }}" @selected($selectedPurpose === $value)>
                             {{ $label }}
                         </option>
                     @endforeach
                 </select>
                 @error('donation.purpose')
+                    <div class="error-text">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="form-field full" id="otherPurposeField" @if($selectedPurpose !== 'other') hidden @endif>
+                <label>Specific Purpose <span class="required">*</span></label>
+                <input
+                    type="text"
+                    name="donation[allocation_notes]"
+                    value="{{ old('donation.allocation_notes', $donation?->allocation_notes) }}"
+                    maxlength="255"
+                    placeholder="Please specify the donation purpose"
+                    @if($selectedPurpose !== 'other') disabled @else required @endif
+                >
+                @error('donation.allocation_notes')
                     <div class="error-text">{{ $message }}</div>
                 @enderror
             </div>
@@ -664,6 +686,9 @@
         const itemList = document.getElementById('itemList');
         const addItemBtn = document.getElementById('addItemBtn');
         const itemTemplate = document.getElementById('itemTemplate');
+        const phoneInput = document.querySelector('[data-numeric-only]');
+        const purposeSelect = document.getElementById('donationPurpose');
+        const otherPurposeField = document.getElementById('otherPurposeField');
 
         const summaryType = document.getElementById('summaryType');
         const summaryCash = document.getElementById('summaryCash');
@@ -675,6 +700,22 @@
 
         function selectedLabel() {
             return document.querySelector('input[name="donation[donation_type]"]:checked')?.dataset.label || 'Cash';
+        }
+
+        function updatePurposeField() {
+            if (!purposeSelect || !otherPurposeField) {
+                return;
+            }
+
+            const isOther = purposeSelect.value === 'other';
+            const input = otherPurposeField.querySelector('input');
+
+            otherPurposeField.hidden = !isOther;
+
+            if (input) {
+                input.disabled = !isOther;
+                input.required = isOther;
+            }
         }
 
         function enableSection(section, enabled) {
@@ -780,6 +821,8 @@
             radio.addEventListener('change', updateView);
         });
 
+        purposeSelect?.addEventListener('change', updatePurposeField);
+
         document.addEventListener('input', function (event) {
             if (
                 event.target.matches('[data-cash-amount]') ||
@@ -790,6 +833,10 @@
         });
 
         addItemBtn?.addEventListener('click', addItem);
+
+        phoneInput?.addEventListener('input', function () {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
 
         itemList?.addEventListener('click', function (event) {
             const removeButton = event.target.closest('[data-remove-item]');
@@ -806,6 +853,7 @@
         });
 
         updateView();
+        updatePurposeField();
         updateItemNumbers();
         updateItemButtons();
     });

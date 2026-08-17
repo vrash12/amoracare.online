@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Reviewer;
 use App\Http\Controllers\Controller;
 use App\Models\AdoptionCaseDocument;
 use App\Models\ExternalReviewerCaseAccess;
+use App\Services\ExternalReviewerAccessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,9 +15,10 @@ use Illuminate\View\View;
 
 class AuthorizedCaseController extends Controller
 {
-    public function index(): View
+    public function index(ExternalReviewerAccessService $reviewerAccessService): View
     {
         $user = Auth::user();
+        $reviewerAccessService->ensureReviewerCanAccessExistingCases($user);
 
         $caseAccesses = ExternalReviewerCaseAccess::with([
                 'adoptionCase.child',
@@ -147,13 +149,13 @@ class AuthorizedCaseController extends Controller
             abort(403, 'You are not authorized to view documents for this case.');
         }
 
-        if (!$document->file_path || !Storage::disk('public')->exists($document->file_path)) {
+        if (!$this->documentFileExists($document)) {
             return redirect()
                 ->route('reviewer.cases.show', $access)
                 ->with('error', 'The submitted file is missing or no longer available.');
         }
 
-        return Storage::disk('public')->download(
+        return Storage::disk('local')->download(
             $document->file_path,
             $document->original_filename ?? $document->document_name
         );
@@ -167,10 +169,10 @@ class AuthorizedCaseController extends Controller
             abort(403, 'You are not authorized to accept submitted documents.');
         }
 
-        if (!$document->file_path) {
+        if (!$this->documentFileExists($document)) {
             return redirect()
                 ->route('reviewer.cases.show', $access)
-                ->with('error', 'This document cannot be accepted because no file has been submitted.');
+                ->with('error', 'This document cannot be accepted because the submitted file is missing or no longer available.');
         }
 
         $validated = $request->validate([
@@ -219,10 +221,10 @@ class AuthorizedCaseController extends Controller
             abort(403, 'You are not authorized to reject submitted documents.');
         }
 
-        if (!$document->file_path) {
+        if (!$this->documentFileExists($document)) {
             return redirect()
                 ->route('reviewer.cases.show', $access)
-                ->with('error', 'This document cannot be rejected because no file has been submitted.');
+                ->with('error', 'This document cannot be rejected because the submitted file is missing or no longer available.');
         }
 
         $validated = $request->validate([
@@ -379,5 +381,11 @@ class AuthorizedCaseController extends Controller
         if ((int) $document->adoption_case_id !== (int) $access->adoption_case_id) {
             abort(403, 'This document does not belong to your authorized case.');
         }
+    }
+
+    private function documentFileExists(AdoptionCaseDocument $document): bool
+    {
+        return (bool) $document->file_path
+            && Storage::disk('local')->exists($document->file_path);
     }
 }

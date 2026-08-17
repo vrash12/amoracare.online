@@ -26,6 +26,8 @@ class UserController extends Controller
         $this->authorizeAdmin();
 
         $search = $request->input('search');
+        $role = $request->input('role');
+        $status = $request->input('status');
 
         $users = User::with('role')
             ->when($search, function ($query) use ($search) {
@@ -35,11 +37,15 @@ class UserController extends Controller
                         ->orWhere('phone_number', 'like', "%{$search}%");
                 });
             })
+            ->when($role, fn ($query) => $query->whereHas('role', fn ($roleQuery) => $roleQuery->where('slug', $role)))
+            ->when(in_array($status, ['active', 'inactive', 'pending'], true), fn ($query) => $query->where('status', $status))
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
-        return view('admin.users.index', compact('users', 'search'));
+        $roles = Role::orderBy('name')->get();
+
+        return view('admin.users.index', compact('users', 'search', 'role', 'status', 'roles'));
     }
 
     public function create(): View
@@ -61,7 +67,7 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
             'phone_number' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
         ]);
 
         User::create($validated);
@@ -104,7 +110,7 @@ class UserController extends Controller
             ],
             'phone_number' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'password' => ['nullable', 'string', 'min:8', 'max:255', 'confirmed'],
         ]);
 
         if (empty($validated['password'])) {

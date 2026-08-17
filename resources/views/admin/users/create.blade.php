@@ -133,6 +133,8 @@
                         id="password"
                         class="form-control"
                         minlength="8"
+                        maxlength="255"
+                        autocomplete="new-password"
                         required
                     >
 
@@ -149,10 +151,17 @@
                         id="password_confirmation"
                         class="form-control"
                         minlength="8"
+                        maxlength="255"
+                        autocomplete="new-password"
                         required
                     >
                 </div>
             </div>
+
+            <button type="button" class="btn light" id="userPasswordToggle" aria-pressed="false" style="margin-top: 12px;">
+                <i class="bi bi-eye"></i>
+                <span>Show Passwords</span>
+            </button>
 
             <div class="form-actions" style="margin-top: 24px;">
                 <button type="submit" class="btn">
@@ -165,4 +174,24 @@
             </div>
         </form>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const toggle = document.getElementById('userPasswordToggle');
+            const password = document.getElementById('password');
+            const confirmation = document.getElementById('password_confirmation');
+
+            toggle?.addEventListener('click', function () {
+                const showing = password?.type === 'text';
+                const nextType = showing ? 'password' : 'text';
+
+                if (password) password.type = nextType;
+                if (confirmation) confirmation.type = nextType;
+
+                toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+                toggle.querySelector('i').className = showing ? 'bi bi-eye' : 'bi bi-eye-slash';
+                toggle.querySelector('span').textContent = showing ? 'Show Passwords' : 'Hide Passwords';
+            });
+        });
+    </script>
 @endsection

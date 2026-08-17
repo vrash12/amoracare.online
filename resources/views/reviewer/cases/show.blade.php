@@ -1438,6 +1438,13 @@
     }
 
     .review-modal {
+        --review-primary: #3157a4;
+        --review-primary-dark: #233f7c;
+        --review-primary-soft: #eef4ff;
+        --review-green: #15803d;
+        --review-red: #b91c1c;
+        --review-muted: #667085;
+        --review-line: #e5e9f0;
         position: fixed;
         inset: 0;
         z-index: 1300;
