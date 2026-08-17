@@ -1019,6 +1019,13 @@
     }
 
     .docs-upload-modal {
+        --docs-primary: #9f3f24;
+        --docs-primary-dark: #7c2d19;
+        --docs-primary-soft: #fff3ed;
+        --docs-red: #b91c1c;
+        --docs-muted: #667085;
+        --docs-line: #e5e9f0;
+        --docs-soft: #f7f9fc;
         position: fixed;
         inset: 0;
         z-index: 1200;

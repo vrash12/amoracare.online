@@ -18,6 +18,11 @@
         .audit-meta { color: #667085; font-size: 12px; text-align: right; white-space: nowrap; }
         .audit-meta strong { display: block; margin-bottom: 3px; color: #344054; }
         .audit-empty { padding: 30px; text-align: center; color: #667085; }
+        .audit-pagination { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 18px; }
+        .audit-page-button { min-width: 96px; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border: 1px solid #d0d5dd; border-radius: 11px; background: #fff; color: #344054; font-size: 13px; font-weight: 800; text-decoration: none; }
+        .audit-page-button:hover { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+        .audit-page-button.is-disabled { background: #f9fafb; color: #98a2b3; cursor: not-allowed; }
+        .audit-page-status { color: #667085; font-size: 12px; font-weight: 700; text-align: center; }
         @media (max-width: 760px) {
             .audit-filter { grid-template-columns: 1fr; }
             .audit-event { grid-template-columns: auto minmax(0, 1fr); }
@@ -79,7 +84,31 @@
             </div>
 
             @if($events->hasPages())
-                <div style="margin-top: 18px;">{{ $events->links() }}</div>
+                <nav class="audit-pagination" aria-label="Audit log pagination">
+                    @if($events->onFirstPage())
+                        <span class="audit-page-button is-disabled" aria-disabled="true">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </span>
+                    @else
+                        <a href="{{ $events->previousPageUrl() }}" class="audit-page-button" rel="prev">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </a>
+                    @endif
+
+                    <span class="audit-page-status">
+                        Page {{ $events->currentPage() }} of {{ $events->lastPage() }}
+                    </span>
+
+                    @if($events->hasMorePages())
+                        <a href="{{ $events->nextPageUrl() }}" class="audit-page-button" rel="next">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    @else
+                        <span class="audit-page-button is-disabled" aria-disabled="true">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </span>
+                    @endif
+                </nav>
             @endif
         </section>
     </div>

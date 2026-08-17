@@ -62,7 +62,22 @@ class AdoptionCaseController extends Controller
             ->when($priority, function ($query) use ($priority) {
                 $query->where('priority', $priority);
             })
-            ->latest()
+            ->orderBy(
+                Child::select('first_name')
+                    ->whereColumn('children.id', 'adoption_cases.child_id')
+                    ->limit(1)
+            )
+            ->orderBy(
+                Child::select('middle_name')
+                    ->whereColumn('children.id', 'adoption_cases.child_id')
+                    ->limit(1)
+            )
+            ->orderBy(
+                Child::select('last_name')
+                    ->whereColumn('children.id', 'adoption_cases.child_id')
+                    ->limit(1)
+            )
+            ->orderBy('case_code')
             ->paginate(10)
             ->withQueryString();
 

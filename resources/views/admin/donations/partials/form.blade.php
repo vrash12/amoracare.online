@@ -120,6 +120,10 @@
         grid-column: 1 / -1;
     }
 
+    .form-field[hidden] {
+        display: none !important;
+    }
+
     .form-field label {
         font-size: 13px;
         color: #374151;
@@ -715,6 +719,10 @@
             if (input) {
                 input.disabled = !isOther;
                 input.required = isOther;
+
+                if (isOther && document.activeElement === purposeSelect) {
+                    input.focus();
+                }
             }
         }
 

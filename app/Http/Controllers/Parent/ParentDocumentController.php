@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Parent;
 use App\Http\Controllers\Controller;
 use App\Models\AdoptionCase;
 use App\Models\AdoptionCaseDocument;
+use App\Services\AdoptionDocumentStorageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class ParentDocumentController extends Controller
 {
@@ -108,15 +109,20 @@ class ParentDocumentController extends Controller
             ->with('success', 'Document uploaded successfully. Please wait for staff verification.');
     }
 
-    public function download(AdoptionCaseDocument $document): StreamedResponse
+    public function download(
+        AdoptionCaseDocument $document,
+        AdoptionDocumentStorageService $documentStorage
+    ): Response
     {
         $this->authorizeParentDocument($document);
 
-        if (!$document->file_path || !Storage::disk('local')->exists($document->file_path)) {
-            abort(404, 'Document file not found.');
+        if (!$documentStorage->exists($document->file_path)) {
+            return redirect()
+                ->route('parent.documents.index')
+                ->with('error', 'The uploaded file is missing or no longer available. Please upload the document again.');
         }
 
-        return Storage::disk('local')->download(
+        return $documentStorage->download(
             $document->file_path,
             $document->original_filename ?? 'document'
         );
