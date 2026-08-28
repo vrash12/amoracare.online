@@ -1,4 +1,5 @@
 <?php
+
 // app/Http/Controllers/Parent/ParentAiGuidanceController.php
 
 namespace App\Http\Controllers\Parent;
@@ -15,7 +16,15 @@ class ParentAiGuidanceController extends Controller
 {
     public function index(): View
     {
-        return view('parent.ai.index');
+        $adoptionCase = AdoptionCase::query()
+            ->where('prospective_parent_id', Auth::id())
+            ->latest()
+            ->first();
+
+        return view('parent.ai.index', [
+            'hasAdoptionCase' => $adoptionCase !== null,
+            'initialChatRequests' => $this->initialChatRequests($adoptionCase),
+        ]);
     }
 
     public function chat(Request $request): JsonResponse
@@ -26,7 +35,7 @@ class ParentAiGuidanceController extends Controller
 
         $legalGuidanceUrl = config('services.legal_guidance.url');
 
-        if (!$legalGuidanceUrl) {
+        if (! $legalGuidanceUrl) {
             return response()->json([
                 'message' => 'The AI legal guidance URL is not configured.',
                 'details' => 'Please set LEGAL_GUIDANCE_URL in your .env file.',
@@ -41,18 +50,18 @@ class ParentAiGuidanceController extends Controller
         $userMessage = $validated['message'];
 
         $adoptionCase = AdoptionCase::with([
-                'prospectiveParent.matchingProfile',
-                'assignedSocialWorker',
-                'documents' => function ($query) {
-                    $query->where('requirement_scope', 'parent')
-                        ->orderBy('document_name');
-                },
-                'notes' => function ($query) {
-                    $query->where('visibility', 'parent_update')
-                        ->latest()
-                        ->limit(5);
-                },
-            ])
+            'prospectiveParent.matchingProfile',
+            'assignedSocialWorker',
+            'documents' => function ($query) {
+                $query->where('requirement_scope', 'parent')
+                    ->orderBy('document_name');
+            },
+            'notes' => function ($query) {
+                $query->where('visibility', 'parent_update')
+                    ->latest()
+                    ->limit(5);
+            },
+        ])
             ->where('prospective_parent_id', $user->id)
             ->latest()
             ->first();
@@ -62,27 +71,27 @@ class ParentAiGuidanceController extends Controller
         $history = session()->get('parent_ai_messages', []);
 
         try {
-          $legalGuidanceApiKey = config('services.legal_guidance.api_key');
+            $legalGuidanceApiKey = config('services.legal_guidance.api_key');
 
-if (!$legalGuidanceApiKey) {
-    return response()->json([
-        'message' => 'The AI legal guidance API key is not configured.',
-        'details' => 'Please set LEGAL_GUIDANCE_INTERNAL_API_KEY in the Laravel .env file.',
-    ], 500);
-}
+            if (! $legalGuidanceApiKey) {
+                return response()->json([
+                    'message' => 'The AI legal guidance API key is not configured.',
+                    'details' => 'Please set LEGAL_GUIDANCE_INTERNAL_API_KEY in the Laravel .env file.',
+                ], 500);
+            }
 
-$response = Http::timeout(180)
-    ->connectTimeout(10)
-    ->acceptJson()
-    ->asJson()
-    ->withHeaders([
-        'X-Legal-Guidance-Key' => $legalGuidanceApiKey,
-    ])
-    ->post($legalGuidanceUrl, [
-        'question' => $userMessage,
-        'parent_context' => $parentContext,
-        'conversation_history' => array_slice($history, -6),
-    ]);
+            $response = Http::timeout(180)
+                ->connectTimeout(10)
+                ->acceptJson()
+                ->asJson()
+                ->withHeaders([
+                    'X-Legal-Guidance-Key' => $legalGuidanceApiKey,
+                ])
+                ->post($legalGuidanceUrl, [
+                    'question' => $userMessage,
+                    'parent_context' => $parentContext,
+                    'conversation_history' => array_slice($history, -6),
+                ]);
 
             if ($response->failed()) {
                 return response()->json([
@@ -141,6 +150,131 @@ $response = Http::timeout(180)
         ]);
     }
 
+    private function initialChatRequests(?AdoptionCase $adoptionCase): array
+    {
+        if (! $adoptionCase) {
+            return [
+                [
+                    'title' => 'Begin an Application',
+                    'description' => 'Learn how the adoption process starts',
+                    'question' => 'How do I begin an adoption application, and what should I prepare first?',
+                    'icon' => 'bi-play-circle',
+                    'class' => 'is-status',
+                ],
+                [
+                    'title' => 'Initial Documents',
+                    'description' => 'Review common starting requirements',
+                    'question' => 'What documents should a prospective adoptive parent prepare before starting an application?',
+                    'icon' => 'bi-file-earmark-check',
+                    'class' => 'is-documents',
+                ],
+                [
+                    'title' => 'Basic Qualifications',
+                    'description' => 'Understand general eligibility rules',
+                    'question' => 'What are the basic qualifications for prospective adoptive parents in the Philippines?',
+                    'icon' => 'bi-person-check',
+                    'class' => 'is-requirements',
+                ],
+                [
+                    'title' => 'Home Study',
+                    'description' => 'Learn its purpose and process',
+                    'question' => 'What is a Home Study Report, and what happens during the home study process?',
+                    'icon' => 'bi-house-check',
+                    'class' => 'is-home-study',
+                ],
+                [
+                    'title' => 'Pre-Adoption Forum',
+                    'description' => 'Know what to expect and prepare',
+                    'question' => 'What is the purpose of the pre-adoption forum, and how should I prepare for it?',
+                    'icon' => 'bi-people',
+                    'class' => 'is-forum',
+                ],
+                [
+                    'title' => 'Process Timeline',
+                    'description' => 'Understand the usual adoption stages',
+                    'question' => 'What are the usual stages of the adoption process, and what may affect the timeline?',
+                    'icon' => 'bi-clock-history',
+                    'class' => 'is-timeline',
+                ],
+                [
+                    'title' => 'Responsible Agencies',
+                    'description' => 'Understand the roles of NACC and RACCO',
+                    'question' => 'What are the roles of NACC, RACCO, DSWD, and the social worker in the adoption process?',
+                    'icon' => 'bi-buildings',
+                    'class' => 'is-support',
+                ],
+                [
+                    'title' => 'Privacy and Matching',
+                    'description' => 'Learn why protected records are restricted',
+                    'question' => 'Why can prospective adoptive parents not browse child profiles or matching rankings?',
+                    'icon' => 'bi-shield-lock',
+                    'class' => 'is-privacy',
+                ],
+            ];
+        }
+
+        $statusLabel = $adoptionCase->status_label;
+
+        return [
+            [
+                'title' => 'My Current Status',
+                'description' => "Understand the {$statusLabel} stage",
+                'question' => "My application status is {$statusLabel}. What does this mean?",
+                'icon' => 'bi-signpost-split',
+                'class' => 'is-status',
+            ],
+            [
+                'title' => 'My Next Steps',
+                'description' => 'Know what you should do next',
+                'question' => 'Based on my current application, what should I do next?',
+                'icon' => 'bi-arrow-right-circle',
+                'class' => 'is-process',
+            ],
+            [
+                'title' => 'Documents Needing Action',
+                'description' => 'Check pending or returned requirements',
+                'question' => 'Which of my documents are pending, rejected, expired, or still need my attention?',
+                'icon' => 'bi-file-earmark-excel',
+                'class' => 'is-documents',
+            ],
+            [
+                'title' => 'Document Progress',
+                'description' => 'Review submitted and verified records',
+                'question' => 'Can you summarize the progress of my submitted and verified documents?',
+                'icon' => 'bi-clipboard2-check',
+                'class' => 'is-requirements',
+            ],
+            [
+                'title' => 'Home Study Status',
+                'description' => 'Understand home-study requirements',
+                'question' => 'What should I know about the home study stage of my application?',
+                'icon' => 'bi-house-check',
+                'class' => 'is-home-study',
+            ],
+            [
+                'title' => 'Recent Case Updates',
+                'description' => 'Explain parent-visible staff updates',
+                'question' => 'Please explain the latest parent-visible updates on my adoption case.',
+                'icon' => 'bi-chat-left-text',
+                'class' => 'is-forum',
+            ],
+            [
+                'title' => 'Expected Timeline',
+                'description' => 'Learn what may happen after this stage',
+                'question' => 'What usually happens after my current stage, and what may affect the timeline?',
+                'icon' => 'bi-clock-history',
+                'class' => 'is-timeline',
+            ],
+            [
+                'title' => 'Privacy and Matching',
+                'description' => 'Understand protected case information',
+                'question' => 'What application and matching information can I access, and what information must remain confidential?',
+                'icon' => 'bi-shield-lock',
+                'class' => 'is-privacy',
+            ],
+        ];
+    }
+
     private function buildParentContext($user, ?AdoptionCase $adoptionCase): array
     {
         $user->loadMissing([
@@ -174,7 +308,7 @@ $response = Http::timeout(180)
             'matching_notes' => $profile?->matching_notes,
         ];
 
-        if (!$adoptionCase) {
+        if (! $adoptionCase) {
             return [
                 'has_application' => false,
                 'parent_name' => $user->name,

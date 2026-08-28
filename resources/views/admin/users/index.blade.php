@@ -18,13 +18,9 @@
 
         $totalUsersShown = method_exists($users, 'total') ? $users->total() : $users->count();
 
-        $visibleUsers = method_exists($users, 'getCollection')
-            ? $users->getCollection()
-            : collect($users);
-
-        $activeUsersCount = $visibleUsers->where('status', 'active')->count();
-        $inactiveUsersCount = $visibleUsers->where('status', 'inactive')->count();
-        $pendingUsersCount = $visibleUsers->where('status', 'pending')->count();
+        $activeUsersCount = (int) ($statusCounts['active'] ?? 0);
+        $inactiveUsersCount = (int) ($statusCounts['inactive'] ?? 0);
+        $pendingUsersCount = (int) ($statusCounts['pending'] ?? 0);
 
         $statusBadgeClass = function ($status) {
             return match ($status) {
@@ -366,7 +362,8 @@
         }
 
         .users-alert-success,
-        .users-alert-error {
+        .users-alert-error,
+        .users-automation-note {
             padding: 14px 16px;
             border-radius: 16px;
             font-weight: 700;
@@ -382,6 +379,12 @@
             background: #fef2f2;
             color: #b91c1c;
             border: 1px solid #fecaca;
+        }
+
+        .users-automation-note {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
         }
 
         @media (max-width: 1100px) {
@@ -439,6 +442,18 @@
             </div>
         @endif
 
+        @if(($automaticallyInactivated ?? 0) > 0)
+            <div class="users-alert-success">
+                {{ $automaticallyInactivated }} dormant account(s) were automatically set to inactive.
+            </div>
+        @endif
+
+        <div class="users-automation-note">
+            <i class="bi bi-clock-history"></i>
+            Active accounts are automatically changed to inactive after {{ $inactivityDays }} days without a successful login.
+            Pending accounts are not affected. An administrator can reactivate an account through <strong>Edit User</strong>.
+        </div>
+
         <section class="users-hero">
             <div class="users-header">
                 <div class="users-title">
@@ -467,21 +482,21 @@
             </div>
 
             <div class="users-stat-card">
-                <div class="users-stat-label">Active On This Page</div>
+                <div class="users-stat-label">Active Users</div>
                 <div class="users-stat-value">{{ $activeUsersCount }}</div>
-                <div class="users-stat-help">Visible active accounts</div>
+                <div class="users-stat-help">Accounts that can currently log in</div>
             </div>
 
             <div class="users-stat-card">
-                <div class="users-stat-label">Inactive On This Page</div>
+                <div class="users-stat-label">Inactive Users</div>
                 <div class="users-stat-value">{{ $inactiveUsersCount }}</div>
-                <div class="users-stat-help">Visible inactive accounts</div>
+                <div class="users-stat-help">Login access is disabled</div>
             </div>
 
             <div class="users-stat-card">
-                <div class="users-stat-label">Pending On This Page</div>
+                <div class="users-stat-label">Pending Users</div>
                 <div class="users-stat-value">{{ $pendingUsersCount }}</div>
-                <div class="users-stat-help">Visible pending accounts</div>
+                <div class="users-stat-help">Waiting for administrator activation</div>
             </div>
         </section>
 
@@ -543,6 +558,7 @@
                             <th>Phone</th>
                             <th>Role</th>
                             <th>Status</th>
+                            <th>Email Verification</th>
                             <th>Last Login</th>
                             <th style="text-align: right;">Actions</th>
                         </tr>
@@ -594,7 +610,23 @@
                                 </td>
 
                                 <td>
+                                    <span class="users-badge {{ $user->email_verified_at ? 'badge-green' : 'badge-yellow' }}">
+                                        {{ $user->email_verified_at ? 'Verified' : 'Verification Required' }}
+                                    </span>
+                                </td>
+
+                                <td>
                                     {{ $user->last_login_at?->format('M d, Y h:i A') ?? 'Never' }}
+
+                                    @if($user->status === 'active' && $user->inactivityDeadline())
+                                        <div class="muted">
+                                            Inactive on {{ $user->inactivityDeadline()->format('M d, Y') }} if no login occurs
+                                        </div>
+                                    @elseif($user->status === 'inactive')
+                                        <div class="muted">Login disabled until reactivated</div>
+                                    @else
+                                        <div class="muted">Inactivity timer starts after activation</div>
+                                    @endif
                                 </td>
 
                                 <td>
@@ -624,7 +656,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7">
+                                <td colspan="8">
                                     <div class="empty-state">
                                         <strong>No users found.</strong>
                                         <br>

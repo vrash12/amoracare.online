@@ -1,15 +1,17 @@
 <?php
+
 // laravel-app/app/Http/Controllers/DashboardController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\UserAccountStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
-    public function index(): RedirectResponse
+    public function index(UserAccountStatusService $accountStatusService): RedirectResponse
     {
         $authUser = Auth::user();
 
@@ -23,7 +25,7 @@ class DashboardController extends Controller
         | Auth::user() should return a User model, but if something returns true,
         | we safely log out instead of trying to read $user->role.
         */
-        if (!$authUser instanceof User) {
+        if (! $authUser instanceof User) {
             Auth::logout();
 
             request()->session()->invalidate();
@@ -36,7 +38,9 @@ class DashboardController extends Controller
 
         $user = $authUser->loadMissing('role');
 
-        if ($user->status !== 'active') {
+        $accountStatusService->deactivateIfDormant($user);
+
+        if ($user->status !== User::STATUS_ACTIVE) {
             Auth::logout();
 
             request()->session()->invalidate();
@@ -47,7 +51,18 @@ class DashboardController extends Controller
                 ->with('error', 'Your account is not active. Please contact the administrator.');
         }
 
-        if (!$user->role) {
+        if (! $user->email_verified_at) {
+            Auth::logout();
+
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
+
+            return redirect()
+                ->route('login')
+                ->with('error', 'Sign in again to verify your email address.');
+        }
+
+        if (! $user->role) {
             Auth::logout();
 
             request()->session()->invalidate();

@@ -32,6 +32,11 @@
                 </div>
 
                 <div class="parents-actions">
+                    <a href="{{ route('admin.parents.application-qr') }}" class="btn light">
+                        <i class="bi bi-qr-code"></i>
+                        Application QR Code
+                    </a>
+
                     <a href="{{ route('admin.parents.create') }}" class="btn secondary">
                         <i class="bi bi-plus-circle"></i>
                         Add Parent

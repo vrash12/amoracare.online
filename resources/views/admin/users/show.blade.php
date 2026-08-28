@@ -31,6 +31,24 @@
             <div class="card-title">Last Login</div>
             <div class="card-value" style="font-size: 18px;">{{ $user->last_login_at?->format('M d, Y h:i A') ?? 'Never' }}</div>
         </div>
+        <div class="card">
+            <div class="card-title">Automatic Inactivity</div>
+            <div class="card-value" style="font-size: 18px;">
+                @if($user->status === 'active' && $user->inactivityDeadline())
+                    {{ $user->inactivityDeadline()->format('M d, Y h:i A') }}
+                @elseif($user->status === 'pending')
+                    Starts after activation
+                @else
+                    Login currently disabled
+                @endif
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">Email Verification</div>
+            <div class="card-value" style="font-size: 18px;">
+                {{ $user->email_verified_at?->format('M d, Y h:i A') ?? 'Verification required' }}
+            </div>
+        </div>
     </div>
 
     <div class="panel">

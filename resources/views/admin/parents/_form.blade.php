@@ -13,6 +13,8 @@
                 id="name"
                 name="name"
                 value="{{ old('name', $parent->name) }}"
+                autocapitalize="words"
+                data-auto-capitalize="words"
                 required
             >
             @error('name')
@@ -31,6 +33,7 @@
                 value="{{ old('email', $parent->email) }}"
                 required
             >
+            <div class="muted">A six-digit verification code is required at the first sign-in or after this address changes.</div>
             @error('email')
                 <div class="parents-error">{{ $message }}</div>
             @enderror

@@ -70,6 +70,10 @@
                         </option>
                     </select>
 
+                    <small style="color:#667085;">
+                        Active accounts are automatically set to inactive after {{ config('accounts.inactivity_days', 60) }} days without a login.
+                    </small>
+
                     @error('status')
                         <small class="form-error">{{ $message }}</small>
                     @enderror
@@ -84,6 +88,8 @@
                         class="form-control"
                         value="{{ old('name') }}"
                         maxlength="150"
+                        autocapitalize="words"
+                        data-auto-capitalize="words"
                         required
                     >
 
@@ -103,6 +109,10 @@
                         maxlength="150"
                         required
                     >
+
+                    <small style="color:#667085;">
+                        The user will receive a six-digit verification code when signing in for the first time.
+                    </small>
 
                     @error('email')
                         <small class="form-error">{{ $message }}</small>

@@ -1,18 +1,28 @@
 <?php
+
 // laravel-app/app/Models/User.php
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
     use Notifiable, SoftDeletes;
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_INACTIVE = 'inactive';
+
+    public const STATUS_PENDING = 'pending';
 
     protected $fillable = [
         'role_id',
@@ -22,6 +32,7 @@ class User extends Authenticatable
         'phone_number',
         'status',
         'last_login_at',
+        'activated_at',
     ];
 
     protected $hidden = [
@@ -32,8 +43,85 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'last_login_at' => 'datetime',
+        'activated_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user): void {
+            if ($user->status === self::STATUS_ACTIVE && ! $user->activated_at) {
+                $user->activated_at = now();
+            }
+        });
+
+        static::updating(function (User $user): void {
+            if ($user->isDirty('email')) {
+                $user->email_verified_at = null;
+            }
+
+            if (
+                $user->isDirty('status')
+                && $user->status === self::STATUS_ACTIVE
+                && $user->getOriginal('status') !== self::STATUS_ACTIVE
+            ) {
+                $user->activated_at = now();
+            }
+        });
+
+        static::updated(function (User $user): void {
+            if ($user->wasChanged('email')) {
+                $user->emailVerificationCode()->delete();
+            }
+        });
+    }
+
+    protected function name(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => Str::of((string) $value)
+                ->squish()
+                ->lower()
+                ->title()
+                ->toString()
+        );
+    }
+
+    public function inactivityReferenceAt(): ?CarbonInterface
+    {
+        return collect([
+            $this->last_login_at,
+            $this->activated_at,
+            $this->created_at,
+        ])
+            ->filter()
+            ->sortByDesc(fn (CarbonInterface $date) => $date->getTimestamp())
+            ->first();
+    }
+
+    public function inactivityDeadline(?int $days = null): ?CarbonInterface
+    {
+        $reference = $this->inactivityReferenceAt();
+
+        if (! $reference) {
+            return null;
+        }
+
+        $inactivityDays = $days ?? max(1, (int) config('accounts.inactivity_days', 60));
+
+        return $reference->copy()->addDays($inactivityDays);
+    }
+
+    public function hasExceededInactivityLimit(?int $days = null): bool
+    {
+        if ($this->status !== self::STATUS_ACTIVE) {
+            return false;
+        }
+
+        $deadline = $this->inactivityDeadline($days);
+
+        return $deadline !== null && now()->greaterThanOrEqualTo($deadline);
+    }
 
     public function role(): BelongsTo
     {
@@ -88,5 +176,10 @@ class User extends Authenticatable
     public function matchingProfile(): HasOne
     {
         return $this->hasOne(ParentMatchingProfile::class);
+    }
+
+    public function emailVerificationCode(): HasOne
+    {
+        return $this->hasOne(EmailVerificationCode::class);
     }
 }

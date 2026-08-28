@@ -293,6 +293,18 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-auto-capitalize="words"]').forEach(function (input) {
+            input.addEventListener('blur', function () {
+                input.value = input.value
+                    .trim()
+                    .replace(/\s+/g, ' ')
+                    .toLocaleLowerCase()
+                    .replace(/(^|[\s'-])\p{L}/gu, function (match) {
+                        return match.toLocaleUpperCase();
+                    });
+            });
+        });
+
         const dashboardShell = document.getElementById('dashboardShell');
         const sidebarToggle = document.getElementById('topbarSidebarToggle');
         const sidebarMiniLogoButton = document.getElementById('sidebarMiniLogoButton');

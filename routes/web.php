@@ -1,23 +1,26 @@
 <?php
 
+use App\Http\Controllers\Admin\AdoptionCaseController;
+use App\Http\Controllers\Admin\AdoptionMatchingController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\ChildController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DonationController;
+use App\Http\Controllers\Admin\ParentApplicationQrController;
+use App\Http\Controllers\Admin\ParentController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\ChildController;
-use App\Http\Controllers\Admin\AdoptionCaseController;
-use App\Http\Controllers\Admin\DonationController;
-use App\Http\Controllers\Admin\ReportController;
-use App\Http\Controllers\Parent\ParentDashboardController;
-use App\Http\Controllers\Parent\ParentApplicationController;
-use App\Http\Controllers\Parent\ParentDocumentController;
 use App\Http\Controllers\Parent\ParentAiGuidanceController;
-use App\Http\Controllers\Admin\AdoptionMatchingController;
-use App\Http\Controllers\Reviewer\ReviewerDashboardController;
+use App\Http\Controllers\Parent\ParentApplicationController;
+use App\Http\Controllers\Parent\ParentDashboardController;
+use App\Http\Controllers\Parent\ParentDocumentController;
+use App\Http\Controllers\Public\ProspectiveParentApplicationController;
 use App\Http\Controllers\Reviewer\AuthorizedCaseController;
-use App\Http\Controllers\Admin\ParentController;
-use App\Http\Controllers\Admin\AuditLogController;
-use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Reviewer\ReviewerDashboardController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,6 +31,16 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
+
+Route::get('/apply/adoptive-parent', [ProspectiveParentApplicationController::class, 'create'])
+    ->name('parent.application.create');
+
+Route::post('/apply/adoptive-parent', [ProspectiveParentApplicationController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('parent.application.store');
+
+Route::get('/apply/adoptive-parent/submitted', [ProspectiveParentApplicationController::class, 'submitted'])
+    ->name('parent.application.submitted');
 
 /*
 |--------------------------------------------------------------------------
@@ -43,6 +56,17 @@ Route::middleware('guest')->group(function () {
 
     Route::post('/login', [LoginController::class, 'login'])
         ->name('login.store');
+
+    Route::get('/email/verify', [EmailVerificationController::class, 'show'])
+        ->name('email.verification.notice');
+
+    Route::post('/email/verify', [EmailVerificationController::class, 'verify'])
+        ->middleware('throttle:10,1')
+        ->name('email.verification.verify');
+
+    Route::post('/email/verification-code', [EmailVerificationController::class, 'resend'])
+        ->middleware('throttle:3,1')
+        ->name('email.verification.resend');
 });
 
 Route::post('/logout', [LoginController::class, 'logout'])
@@ -88,6 +112,12 @@ Route::middleware(['auth', 'role:admin'])
             ->name('matching.show');
 
         Route::resource('users', UserController::class);
+        Route::get('/parents/application-qr', [ParentApplicationQrController::class, 'show'])
+            ->name('parents.application-qr');
+        Route::get('/parents/application-qr/image', [ParentApplicationQrController::class, 'image'])
+            ->name('parents.application-qr.image');
+        Route::get('/parents/application-qr/download', [ParentApplicationQrController::class, 'download'])
+            ->name('parents.application-qr.download');
         Route::resource('parents', ParentController::class);
         Route::resource('children', ChildController::class);
         Route::post('/matching/results/{result}/create-case', [AdoptionMatchingController::class, 'createCase'])
@@ -190,8 +220,6 @@ Route::middleware(['auth', 'role:external_reviewer'])
         Route::post('/authorized-cases/{access}/documents/{document}/reject', [AuthorizedCaseController::class, 'rejectDocument'])
             ->name('cases.documents.reject');
     });
-
-
 
 Route::fallback(function () {
     return redirect()->route('home');

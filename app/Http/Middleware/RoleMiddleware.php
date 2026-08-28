@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
+use App\Services\UserAccountStatusService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -9,23 +11,43 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RoleMiddleware
 {
+    public function __construct(
+        private readonly UserAccountStatusService $accountStatusService
+    ) {}
+
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = Auth::user();
 
-        if (!$user || !$user->role) {
+        if (! $user || ! $user->role) {
             abort(403, 'Unauthorized access.');
         }
 
-        if ($user->status !== 'active') {
+        $this->accountStatusService->deactivateIfDormant($user);
+
+        if ($user->status !== User::STATUS_ACTIVE) {
             Auth::logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
             return redirect()
                 ->route('login')
-                ->with('error', 'Your account is not active.');
+                ->with('error', 'Your account is inactive or pending administrator approval.');
         }
 
-        if (!in_array($user->role->slug, $roles, true)) {
+        if (! $user->email_verified_at) {
+            Auth::logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()
+                ->route('login')
+                ->with('error', 'Sign in again to verify your email address.');
+        }
+
+        if (! in_array($user->role->slug, $roles, true)) {
             abort(403, 'You do not have permission to access this page.');
         }
 

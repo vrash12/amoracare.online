@@ -182,6 +182,9 @@
         }
 
         .ai-question-chip {
+            --chat-button-color: #8b2f18;
+            --chat-button-soft: #fff4ef;
+            --chat-button-border: #f1d6cc;
             width: 100%;
             display: flex;
             align-items: center;
@@ -206,14 +209,94 @@
             place-items: center;
             flex: 0 0 auto;
             border-radius: 10px;
-            background: var(--ai-primary-soft);
-            color: var(--ai-primary);
+            background: var(--chat-button-soft);
+            color: var(--chat-button-color);
         }
 
         .ai-question-chip:hover {
             transform: translateY(-1px);
-            border-color: #e7b9a8;
-            background: #fffaf8;
+            border-color: var(--chat-button-border);
+            background: var(--chat-button-soft);
+        }
+
+        .ai-question-copy {
+            min-width: 0;
+            display: grid;
+            gap: 2px;
+        }
+
+        .ai-question-copy strong {
+            color: #344054;
+            font-size: 13px;
+        }
+
+        .ai-question-copy small {
+            color: var(--ai-muted);
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+
+        .ai-question-chip::after {
+            content: "\F138";
+            margin-left: auto;
+            color: var(--chat-button-color);
+            font-family: "bootstrap-icons";
+            font-size: 13px;
+        }
+
+        .ai-question-chip.is-documents {
+            --chat-button-color: #1d4ed8;
+            --chat-button-soft: #eff6ff;
+            --chat-button-border: #93c5fd;
+        }
+
+        .ai-question-chip.is-status {
+            --chat-button-color: #047857;
+            --chat-button-soft: #ecfdf5;
+            --chat-button-border: #6ee7b7;
+        }
+
+        .ai-question-chip.is-requirements {
+            --chat-button-color: #7c3aed;
+            --chat-button-soft: #f5f3ff;
+            --chat-button-border: #c4b5fd;
+        }
+
+        .ai-question-chip.is-home-study {
+            --chat-button-color: #b45309;
+            --chat-button-soft: #fffbeb;
+            --chat-button-border: #fcd34d;
+        }
+
+        .ai-question-chip.is-forum {
+            --chat-button-color: #be185d;
+            --chat-button-soft: #fdf2f8;
+            --chat-button-border: #f9a8d4;
+        }
+
+        .ai-question-chip.is-privacy {
+            --chat-button-color: #475569;
+            --chat-button-soft: #f8fafc;
+            --chat-button-border: #cbd5e1;
+        }
+
+        .ai-question-chip.is-timeline {
+            --chat-button-color: #0369a1;
+            --chat-button-soft: #f0f9ff;
+            --chat-button-border: #7dd3fc;
+        }
+
+        .ai-question-chip.is-process {
+            --chat-button-color: #0f766e;
+            --chat-button-soft: #f0fdfa;
+            --chat-button-border: #5eead4;
+        }
+
+        .ai-question-chip.is-support {
+            --chat-button-color: #9a3412;
+            --chat-button-soft: #fff7ed;
+            --chat-button-border: #fdba74;
         }
 
         .ai-question-chip:focus-visible,
@@ -1075,64 +1158,27 @@
                 <section class="ai-side-card">
                     <h2 class="ai-side-title">
                         <i class="bi bi-lightning-charge" aria-hidden="true"></i>
-                        Quick questions
+                        Initial chat requests
                     </h2>
-                    <p class="ai-side-description">Choose a topic to place a ready-to-send question in the message box.</p>
+                    <p class="ai-side-description">
+                        Choose a starter based on {{ $hasAdoptionCase ? 'your current application' : 'where you are in the adoption process' }}.
+                    </p>
 
                     <div class="ai-topic-list">
-                        <button
-                            type="button"
-                            class="ai-question-chip"
-                            data-question="What documents do I still need to submit?"
-                        >
-                            <i class="bi bi-file-earmark-check" aria-hidden="true"></i>
-                            <span>My missing documents</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            class="ai-question-chip"
-                            data-question="What is the current status of my application and what should I do next?"
-                        >
-                            <i class="bi bi-signpost-split" aria-hidden="true"></i>
-                            <span>My application status</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            class="ai-question-chip"
-                            data-question="What are the common requirements for domestic adoption?"
-                        >
-                            <i class="bi bi-clipboard2-check" aria-hidden="true"></i>
-                            <span>Common requirements</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            class="ai-question-chip"
-                            data-question="What is a Home Study Report and why is it required?"
-                        >
-                            <i class="bi bi-house-check" aria-hidden="true"></i>
-                            <span>Home Study Report</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            class="ai-question-chip"
-                            data-question="What is the purpose of the pre-adoption forum?"
-                        >
-                            <i class="bi bi-people" aria-hidden="true"></i>
-                            <span>Pre-adoption forum</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            class="ai-question-chip"
-                            data-question="Why can I not browse child profiles or matching rankings?"
-                        >
-                            <i class="bi bi-shield-lock" aria-hidden="true"></i>
-                            <span>Privacy and restrictions</span>
-                        </button>
+                        @foreach($initialChatRequests as $initialRequest)
+                            <button
+                                type="button"
+                                class="ai-question-chip {{ $initialRequest['class'] }}"
+                                data-question="{{ $initialRequest['question'] }}"
+                                data-send-immediately="true"
+                            >
+                                <i class="bi {{ $initialRequest['icon'] }}" aria-hidden="true"></i>
+                                <span class="ai-question-copy">
+                                    <strong>{{ $initialRequest['title'] }}</strong>
+                                    <small>{{ $initialRequest['description'] }}</small>
+                                </span>
+                            </button>
+                        @endforeach
                     </div>
                 </section>
 
@@ -1277,10 +1323,15 @@
         const LEGACY_STORAGE_KEY = "amoracare_parent_ai_chat_v3";
         const MAX_MESSAGE_LENGTH = 2000;
         const REQUEST_TIMEOUT_MS = 120000;
+        const DEFAULT_GREETING = @json(
+            $hasAdoptionCase
+                ? 'Welcome back! Choose one of the initial requests to ask about your current application status, documents, recent updates, or next steps.'
+                : 'Hello! Choose one of the initial requests to learn how to begin an adoption application, prepare requirements, and understand the general process.'
+        );
 
         const defaultMessage = {
             role: "assistant",
-            content: "Hello! I am AmoraCare Guide. I can help explain your parent-visible application status, document checklist, adoption requirements, and general procedures. What would you like to understand today?",
+            content: DEFAULT_GREETING,
             sources: [],
             disclaimer: null,
             isTyping: false,
@@ -2004,7 +2055,7 @@
 
             messages = [{
                 ...defaultMessage,
-                content: "Your conversation has been cleared. What adoption-related question can I help with next?",
+                content: "Your conversation has been cleared. Choose a different initial request, or type your own adoption-related question.",
                 createdAt: new Date().toISOString()
             }];
 
@@ -2030,6 +2081,11 @@
 
             if (questionButton) {
                 setQuestion(questionButton.dataset.question);
+
+                if (questionButton.dataset.sendImmediately === "true") {
+                    sendMessage();
+                }
+
                 return;
             }
 

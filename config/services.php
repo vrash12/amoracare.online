@@ -14,14 +14,14 @@ return [
     |
     */
 
-'legal_guidance' => [
-    'url' => env(
-        'LEGAL_GUIDANCE_API_URL',
-        'http://127.0.0.1:8001/api/legal-guidance/ask/'
-    ),
+    'legal_guidance' => [
+        'url' => env(
+            'LEGAL_GUIDANCE_API_URL',
+            'http://127.0.0.1:8001/api/legal-guidance/ask/'
+        ),
 
-    'api_key' => env('LEGAL_GUIDANCE_INTERNAL_API_KEY'),
-],
+        'api_key' => env('LEGAL_GUIDANCE_INTERNAL_API_KEY'),
+    ],
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
@@ -44,8 +44,15 @@ return [
     ],
 
     'openai' => [
-    'api_key' => env('OPENAI_API_KEY'),
-    'matching_model' => env('OPENAI_MATCHING_MODEL', 'gpt-4.1-mini'),
-],
+        'api_key' => env('OPENAI_API_KEY'),
+        'matching_model' => env('OPENAI_MATCHING_MODEL', 'gpt-4.1-mini'),
+    ],
+
+    'brevo' => [
+        'api_url' => env('BREVO_API_URL', 'https://api.brevo.com/v3/smtp/email'),
+        'api_key' => env('BREVO_API_KEY'),
+        'sender_email' => env('BREVO_SENDER_EMAIL'),
+        'sender_name' => env('BREVO_SENDER_NAME', env('APP_NAME', 'AmoraCare')),
+    ],
 
 ];

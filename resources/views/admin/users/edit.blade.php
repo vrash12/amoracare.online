@@ -32,18 +32,22 @@
                             <option value="{{ $value }}" @selected(old('status', $user->status) === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
+                    <small style="color:#667085;">
+                        Reactivating an account restarts its {{ config('accounts.inactivity_days', 60) }}-day inactivity timer.
+                    </small>
                     @error('status')<small class="form-error">{{ $message }}</small>@enderror
                 </div>
 
                 <div class="form-group">
                     <label for="name">Full Name</label>
-                    <input type="text" name="name" id="name" class="form-control" value="{{ old('name', $user->name) }}" maxlength="150" required>
+                    <input type="text" name="name" id="name" class="form-control" value="{{ old('name', $user->name) }}" maxlength="150" autocapitalize="words" data-auto-capitalize="words" required>
                     @error('name')<small class="form-error">{{ $message }}</small>@enderror
                 </div>
 
                 <div class="form-group">
                     <label for="email">Email Address</label>
                     <input type="email" name="email" id="email" class="form-control" value="{{ old('email', $user->email) }}" maxlength="150" required>
+                    <small style="color:#667085;">Changing this address requires the user to verify the new email at the next sign-in.</small>
                     @error('email')<small class="form-error">{{ $message }}</small>@enderror
                 </div>
 

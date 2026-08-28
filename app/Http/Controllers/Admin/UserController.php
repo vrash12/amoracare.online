@@ -1,4 +1,5 @@
 <?php
+
 // laravel-app/app/Http/Controllers/Admin/UserController.php
 
 namespace App\Http\Controllers\Admin;
@@ -6,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\UserAccountStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,14 +18,18 @@ class UserController extends Controller
 {
     private function authorizeAdmin(): void
     {
-      if (!Auth::check() || !Auth::user()->isAdmin()) {
-    abort(403, 'Only administrators can access user management.');
-}
+        if (! Auth::check() || ! Auth::user()->isAdmin()) {
+            abort(403, 'Only administrators can access user management.');
+        }
     }
 
-    public function index(Request $request): View
-    {
+    public function index(
+        Request $request,
+        UserAccountStatusService $accountStatusService
+    ): View {
         $this->authorizeAdmin();
+
+        $automaticallyInactivated = $accountStatusService->deactivateDormantUsers();
 
         $search = $request->input('search');
         $role = $request->input('role');
@@ -45,7 +51,25 @@ class UserController extends Controller
 
         $roles = Role::orderBy('name')->get();
 
-        return view('admin.users.index', compact('users', 'search', 'role', 'status', 'roles'));
+        $statusCounts = User::query()
+            ->whereIn('status', [
+                User::STATUS_ACTIVE,
+                User::STATUS_INACTIVE,
+                User::STATUS_PENDING,
+            ])
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        return view('admin.users.index', compact(
+            'users',
+            'search',
+            'role',
+            'status',
+            'roles',
+            'statusCounts',
+            'automaticallyInactivated'
+        ))->with('inactivityDays', $accountStatusService->inactivityDays());
     }
 
     public function create(): View
