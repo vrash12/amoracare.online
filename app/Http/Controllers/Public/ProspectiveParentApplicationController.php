@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\ParentMatchingProfile;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\EmailVerificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use RuntimeException;
 
 class ProspectiveParentApplicationController extends Controller
 {
@@ -20,8 +22,10 @@ class ProspectiveParentApplicationController extends Controller
         return view('public.prospective-parent-application');
     }
 
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        EmailVerificationService $emailVerificationService
+    ): RedirectResponse {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
@@ -68,9 +72,28 @@ class ProspectiveParentApplicationController extends Controller
             return $parent;
         });
 
+        $request->session()->put([
+            'email_verification_user_id' => $parent->id,
+            'email_verification_remember' => false,
+            'email_verification_purpose' => 'registration',
+        ]);
+
+        try {
+            $sent = $emailVerificationService->sendCode($parent, 'registration');
+        } catch (RuntimeException $exception) {
+            return redirect()
+                ->route('email.verification.notice')
+                ->withErrors(['code' => $exception->getMessage()]);
+        }
+
         return redirect()
-            ->route('parent.application.submitted')
-            ->with('application_email', $parent->email);
+            ->route('email.verification.notice')
+            ->with(
+                'success',
+                $sent
+                    ? 'A sign-up OTP was sent to your email address.'
+                    : 'A sign-up OTP was sent recently. Check your inbox or wait before requesting another.'
+            );
     }
 
     public function submitted(Request $request): View|RedirectResponse

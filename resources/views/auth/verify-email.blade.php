@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Verify your AmoraCare account email address.">
-    <title>Verify Email | AmoraCare</title>
+    <meta name="description" content="Enter your AmoraCare email OTP.">
+    <title>OTP Verification | AmoraCare</title>
     <link rel="icon" type="image/png" href="{{ asset('images/amora.png') }}">
     <link rel="stylesheet" href="{{ asset('css/login.css') }}">
 </head>
@@ -34,11 +34,15 @@
 
                     <div class="auth-welcome">
                         <h1>One more step to protect your account.</h1>
-                        <p>Email verification helps ensure that account access and sensitive application updates reach the correct person.</p>
+                        <p>
+                            {{ $purpose === 'registration'
+                                ? 'Verify your email before your prospective adoptive parent application is submitted for staff review.'
+                                : 'Enter the emailed one-time password before AmoraCare grants access to your account.' }}
+                        </p>
                     </div>
 
                     <footer class="auth-introduction-footer">
-                        <span>Your six-digit code is private and expires automatically.</span>
+                        <span>Your six-digit OTP is private and expires automatically.</span>
                     </footer>
                 </div>
             </aside>
@@ -53,15 +57,15 @@
 
                 <div class="auth-form-container">
                     <div class="auth-form-heading">
-                        <span class="auth-form-label">Email verification</span>
-                        <h2>Enter your verification code</h2>
-                        <p>We sent a six-digit code to <strong>{{ $maskedEmail }}</strong>. It expires in {{ $expiresMinutes }} minutes.</p>
+                        <span class="auth-form-label">{{ $purpose === 'registration' ? 'Sign-up verification' : 'Secure login' }}</span>
+                        <h2>Enter your one-time password</h2>
+                        <p>We sent a six-digit OTP to <strong>{{ $maskedEmail }}</strong>. It expires in {{ $expiresMinutes }} minutes.</p>
                     </div>
 
                     @if(session('success'))
                         <div class="auth-alert auth-alert-success" role="alert">
                             <div>
-                                <strong>Verification code</strong>
+                                <strong>One-time password</strong>
                                 <p>{{ session('success') }}</p>
                             </div>
                         </div>
@@ -80,7 +84,7 @@
                         @csrf
 
                         <div class="auth-field">
-                            <label for="code">Six-digit verification code</label>
+                            <label for="code">Six-digit OTP</label>
                             <div class="auth-input-wrapper @error('code') has-error @enderror">
                                 <input
                                     type="text"
@@ -100,7 +104,9 @@
                         </div>
 
                         <button type="submit" class="auth-submit" id="verifyButton">
-                            <span class="auth-submit-content">Verify email and continue</span>
+                            <span class="auth-submit-content">
+                                {{ $purpose === 'registration' ? 'Verify sign-up and submit' : 'Verify OTP and log in' }}
+                            </span>
                             <span class="auth-submit-loading"><span class="auth-spinner"></span> Verifying...</span>
                         </button>
                     </form>
@@ -108,7 +114,7 @@
                     <form method="POST" action="{{ route('email.verification.resend') }}" style="margin-top:16px;text-align:center;">
                         @csrf
                         <button type="submit" style="border:0;background:transparent;color:#9d3f20;font-weight:700;cursor:pointer;">
-                            Send another code
+                            Send another OTP
                         </button>
                     </form>
 

@@ -67,39 +67,34 @@ class LoginController extends Controller
             ]);
         }
 
-        if (! $user->email_verified_at) {
-            $request->session()->put([
-                'email_verification_user_id' => $user->id,
-                'email_verification_remember' => $request->boolean('remember'),
-            ]);
-
-            try {
-                $sent = $emailVerificationService->sendCode($user);
-            } catch (\RuntimeException $exception) {
-                throw ValidationException::withMessages([
-                    'email' => $exception->getMessage(),
-                ]);
-            }
-
-            return redirect()
-                ->route('email.verification.notice')
-                ->with(
-                    'success',
-                    $sent
-                        ? 'A verification code was sent to your email address.'
-                        : 'A verification code was sent recently. Check your inbox or wait before requesting another.'
-                );
-        }
-
-        Auth::login($user, $request->boolean('remember'));
-
-        $request->session()->regenerate();
-
-        $user->update([
-            'last_login_at' => now(),
+        $request->session()->put([
+            'email_verification_user_id' => $user->id,
+            'email_verification_remember' => $request->boolean('remember'),
+            'email_verification_purpose' => 'login',
         ]);
 
-        return redirect()->intended(route('dashboard'));
+        try {
+            $sent = $emailVerificationService->sendCode($user, 'login');
+        } catch (\RuntimeException $exception) {
+            $request->session()->forget([
+                'email_verification_user_id',
+                'email_verification_remember',
+                'email_verification_purpose',
+            ]);
+
+            throw ValidationException::withMessages([
+                'email' => $exception->getMessage(),
+            ]);
+        }
+
+        return redirect()
+            ->route('email.verification.notice')
+            ->with(
+                'success',
+                $sent
+                    ? 'A login OTP was sent to your email address.'
+                    : 'A login OTP was sent recently. Check your inbox or wait before requesting another.'
+            );
     }
 
     public function logout(Request $request): RedirectResponse

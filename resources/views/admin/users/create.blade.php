@@ -111,7 +111,7 @@
                     >
 
                     <small style="color:#667085;">
-                        The user will receive a six-digit verification code when signing in for the first time.
+                        The user will receive a new six-digit email OTP at every sign-in.
                     </small>
 
                     @error('email')

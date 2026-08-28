@@ -10,8 +10,12 @@ use RuntimeException;
 
 class BrevoEmailService
 {
-    public function sendVerificationCode(User $user, string $code, int $expiresMinutes): void
-    {
+    public function sendVerificationCode(
+        User $user,
+        string $code,
+        int $expiresMinutes,
+        string $purpose = 'login'
+    ): void {
         $driver = (string) config('accounts.email_verification.driver', 'brevo');
 
         if ($driver === 'log') {
@@ -19,6 +23,7 @@ class BrevoEmailService
                 'email' => $user->email,
                 'code' => $code,
                 'expires_minutes' => $expiresMinutes,
+                'purpose' => $purpose,
             ]);
 
             return;
@@ -52,13 +57,16 @@ class BrevoEmailService
                         'email' => $user->email,
                         'contactPixelTrackingConsent' => false,
                     ]],
-                    'subject' => 'Your AmoraCare email verification code',
+                    'subject' => $purpose === 'registration'
+                        ? 'Verify your AmoraCare sign-up'
+                        : 'Your AmoraCare login OTP',
                     'htmlContent' => view('emails.email-verification-code', [
                         'user' => $user,
                         'code' => $code,
                         'expiresMinutes' => $expiresMinutes,
+                        'purpose' => $purpose,
                     ])->render(),
-                    'tags' => ['email-verification'],
+                    'tags' => [$purpose === 'registration' ? 'registration-otp' : 'login-otp'],
                 ]);
         } catch (ConnectionException $exception) {
             Log::warning('Brevo verification email connection failed.', [

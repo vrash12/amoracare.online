@@ -33,7 +33,7 @@
                 value="{{ old('email', $parent->email) }}"
                 required
             >
-            <div class="muted">A six-digit verification code is required at the first sign-in or after this address changes.</div>
+            <div class="muted">A new six-digit email OTP is required at every sign-in.</div>
             @error('email')
                 <div class="parents-error">{{ $message }}</div>
             @enderror

@@ -26,15 +26,12 @@ class EmailVerificationController extends Controller
                 ->with('error', 'Sign in again to request an email verification code.');
         }
 
-        if ($user->email_verified_at) {
-            return redirect()
-                ->route('login')
-                ->with('success', 'Your email address is already verified. You may now sign in.');
-        }
+        $purpose = $this->verificationPurpose($request);
 
         return view('auth.verify-email', [
             'maskedEmail' => $this->maskEmail($user->email),
             'expiresMinutes' => $emailVerificationService->expiresMinutes(),
+            'purpose' => $purpose,
         ]);
     }
 
@@ -54,11 +51,10 @@ class EmailVerificationController extends Controller
                 ->with('error', 'Your verification session expired. Sign in again.');
         }
 
-        if ($user->status !== User::STATUS_ACTIVE || ! $user->role) {
-            $request->session()->forget([
-                'email_verification_user_id',
-                'email_verification_remember',
-            ]);
+        $purpose = $this->verificationPurpose($request);
+
+        if (! $user->role || ($purpose === 'login' && $user->status !== User::STATUS_ACTIVE)) {
+            $this->clearVerificationSession($request);
 
             return redirect()
                 ->route('login')
@@ -73,20 +69,26 @@ class EmailVerificationController extends Controller
             ]);
         }
 
+        if ($purpose === 'registration') {
+            $this->clearVerificationSession($request);
+            $request->session()->regenerate();
+
+            return redirect()
+                ->route('parent.application.submitted')
+                ->with('application_email', $user->email);
+        }
+
         $remember = (bool) $request->session()->get('email_verification_remember', false);
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
-        $request->session()->forget([
-            'email_verification_user_id',
-            'email_verification_remember',
-        ]);
+        $this->clearVerificationSession($request);
 
         $user->update(['last_login_at' => now()]);
 
         return redirect()
             ->intended(route('dashboard'))
-            ->with('success', 'Your email address was verified successfully.');
+            ->with('success', 'Your login OTP was verified successfully.');
     }
 
     public function resend(
@@ -102,7 +104,10 @@ class EmailVerificationController extends Controller
         }
 
         try {
-            $sent = $emailVerificationService->sendCode($user);
+            $sent = $emailVerificationService->sendCode(
+                $user,
+                $this->verificationPurpose($request)
+            );
         } catch (RuntimeException $exception) {
             return back()->withErrors(['code' => $exception->getMessage()]);
         }
@@ -120,6 +125,22 @@ class EmailVerificationController extends Controller
         $userId = $request->session()->get('email_verification_user_id');
 
         return $userId ? User::with('role')->find($userId) : null;
+    }
+
+    private function verificationPurpose(Request $request): string
+    {
+        return $request->session()->get('email_verification_purpose') === 'registration'
+            ? 'registration'
+            : 'login';
+    }
+
+    private function clearVerificationSession(Request $request): void
+    {
+        $request->session()->forget([
+            'email_verification_user_id',
+            'email_verification_remember',
+            'email_verification_purpose',
+        ]);
     }
 
     private function maskEmail(string $email): string

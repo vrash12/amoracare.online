@@ -117,7 +117,7 @@ class EmailVerificationTest extends TestCase
             && $request->hasHeader('api-key', 'test-api-key'));
     }
 
-    public function test_unverified_user_can_complete_login_with_the_emailed_code(): void
+    public function test_user_can_complete_login_with_the_emailed_otp(): void
     {
         $sentCode = null;
 
@@ -141,14 +141,15 @@ class EmailVerificationTest extends TestCase
             'email' => $user->email,
             'password' => 'password',
         ])->assertRedirect(route('email.verification.notice'))
-            ->assertSessionHas('email_verification_user_id', $user->id);
+            ->assertSessionHas('email_verification_user_id', $user->id)
+            ->assertSessionHas('email_verification_purpose', 'login');
 
         $this->assertGuest();
         $this->assertNotNull($sentCode);
 
         $this->get(route('email.verification.notice'))
             ->assertOk()
-            ->assertSee('Enter your verification code')
+            ->assertSee('Enter your one-time password')
             ->assertSee('expires in 10 minutes');
 
         $this->post(route('email.verification.verify'), [
@@ -159,6 +160,44 @@ class EmailVerificationTest extends TestCase
         $this->assertNotNull($user->fresh()->email_verified_at);
         $this->assertNotNull($user->fresh()->last_login_at);
         $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $user->id]);
+    }
+
+    public function test_already_verified_user_still_requires_a_new_otp_for_every_login(): void
+    {
+        $sentCode = null;
+
+        Http::fake(function (ClientRequest $request) use (&$sentCode) {
+            preg_match('/letter-spacing:10px;">\s*(\d{6})\s*</', (string) $request['htmlContent'], $matches);
+            $sentCode = $matches[1] ?? null;
+
+            return Http::response(['messageId' => 'test-message-id'], 201);
+        });
+
+        $roleId = Schema::getConnection()->table('roles')->insertGetId([
+            'name' => 'Prospective Parent',
+            'slug' => 'prospective_parent',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $user = $this->createUser(['role_id' => $roleId]);
+        $user->forceFill(['email_verified_at' => now()->subDay()])->save();
+
+        $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect(route('email.verification.notice'))
+            ->assertSessionHas('email_verification_purpose', 'login');
+
+        $this->assertGuest();
+        $this->assertNotNull($sentCode);
+
+        $this->post(route('email.verification.verify'), [
+            'code' => $sentCode,
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertTrue($user->fresh()->email_verified_at->equalTo(now()));
     }
 
     public function test_verification_code_expires_and_limits_incorrect_attempts(): void

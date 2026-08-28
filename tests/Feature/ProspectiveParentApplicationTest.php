@@ -6,16 +6,39 @@ use App\Models\ParentMatchingProfile;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ProspectiveParentApplicationTest extends TestCase
 {
+    private ?string $sentCode = null;
+
     protected function setUp(): void
     {
         parent::setUp();
 
+        config([
+            'accounts.email_verification.driver' => 'brevo',
+            'accounts.email_verification.expires_minutes' => 10,
+            'accounts.email_verification.resend_cooldown_seconds' => 60,
+            'accounts.email_verification.max_attempts' => 5,
+            'services.brevo.api_url' => 'https://api.brevo.com/v3/smtp/email',
+            'services.brevo.api_key' => 'test-api-key',
+            'services.brevo.sender_email' => 'verified-sender@example.com',
+            'services.brevo.sender_name' => 'AmoraCare',
+        ]);
+
+        Http::fake(function (ClientRequest $request) {
+            preg_match('/letter-spacing:10px;">\s*(\d{6})\s*</', (string) $request['htmlContent'], $matches);
+            $this->sentCode = $matches[1] ?? null;
+
+            return Http::response(['messageId' => 'test-message-id'], 201);
+        });
+
+        Schema::dropIfExists('email_verification_codes');
         Schema::dropIfExists('parent_matching_profiles');
         Schema::dropIfExists('users');
         Schema::dropIfExists('roles');
@@ -58,10 +81,21 @@ class ProspectiveParentApplicationTest extends TestCase
             $table->text('matching_notes')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('email_verification_codes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->unique();
+            $table->string('code_hash');
+            $table->unsignedTinyInteger('attempts')->default(0);
+            $table->timestamp('sent_at');
+            $table->timestamp('expires_at');
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('email_verification_codes');
         Schema::dropIfExists('parent_matching_profiles');
         Schema::dropIfExists('users');
         Schema::dropIfExists('roles');
@@ -77,7 +111,7 @@ class ProspectiveParentApplicationTest extends TestCase
             ->assertSee('Application Form');
     }
 
-    public function test_application_creates_a_pending_parent_and_unassessed_matching_profile(): void
+    public function test_application_requires_email_otp_before_pending_submission_is_completed(): void
     {
         $response = $this->post(route('parent.application.store'), [
             'name' => '  maRIA   santos  ',
@@ -94,13 +128,16 @@ class ProspectiveParentApplicationTest extends TestCase
 
         $parent = User::with(['role', 'matchingProfile'])->firstOrFail();
 
-        $response->assertRedirect(route('parent.application.submitted'))
-            ->assertSessionHas('application_email', 'maria.santos@example.com');
+        $response->assertRedirect(route('email.verification.notice'))
+            ->assertSessionHas('email_verification_user_id', $parent->id)
+            ->assertSessionHas('email_verification_purpose', 'registration');
 
         $this->assertSame('Maria Santos', $parent->name);
         $this->assertSame('maria.santos@example.com', $parent->email);
         $this->assertSame(User::STATUS_PENDING, $parent->status);
         $this->assertNull($parent->email_verified_at);
+        $this->assertGuest();
+        $this->assertNotNull($this->sentCode);
         $this->assertSame('prospective_parent', $parent->role->slug);
         $this->assertTrue(Hash::check('SecurePass123', $parent->password));
 
@@ -111,6 +148,20 @@ class ProspectiveParentApplicationTest extends TestCase
         $this->assertSame(0, $parent->matchingProfile->financial_capacity_score);
         $this->assertSame(0, $parent->matchingProfile->housing_score);
         $this->assertSame(0, $parent->matchingProfile->parenting_capacity_score);
+
+        $this->get(route('email.verification.notice'))
+            ->assertOk()
+            ->assertSee('Sign-up verification')
+            ->assertSee('Verify sign-up and submit');
+
+        $this->post(route('email.verification.verify'), [
+            'code' => $this->sentCode,
+        ])->assertRedirect(route('parent.application.submitted'))
+            ->assertSessionHas('application_email', 'maria.santos@example.com');
+
+        $this->assertGuest();
+        $this->assertNotNull($parent->fresh()->email_verified_at);
+        $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $parent->id]);
     }
 
     public function test_duplicate_email_is_rejected(): void

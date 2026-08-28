@@ -26,7 +26,7 @@ class EmailVerificationService
         return max(1, (int) config('accounts.email_verification.max_attempts', 5));
     }
 
-    public function sendCode(User $user): bool
+    public function sendCode(User $user, string $purpose = 'login'): bool
     {
         $existing = $user->emailVerificationCode()->first();
 
@@ -51,7 +51,12 @@ class EmailVerificationService
         );
 
         try {
-            $this->emailService->sendVerificationCode($user, $code, $this->expiresMinutes());
+            $this->emailService->sendVerificationCode(
+                $user,
+                $code,
+                $this->expiresMinutes(),
+                $purpose
+            );
         } catch (\Throwable $exception) {
             $verificationCode->delete();
 
