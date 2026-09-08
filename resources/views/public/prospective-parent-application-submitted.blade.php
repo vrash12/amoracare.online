@@ -19,5 +19,9 @@
             <a href="{{ route('login') }}" class="submit-button">Go to Login</a>
         </div>
     </main>
+    <footer class="application-legal-footer success-legal-footer">
+        <span>&copy; {{ date('Y') }} AmoraCare</span>
+        @include('partials.legal-links')
+    </footer>
 </body>
 </html>

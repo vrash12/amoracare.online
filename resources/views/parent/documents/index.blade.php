@@ -4,6 +4,12 @@
 @php
     $safeProgress = max(0, min(100, (int) $documentProgressPercent));
 
+    $documentUploadsLocked = $adoptionCase
+        && (
+            $adoptionCase->racco_review_status === 'approved'
+            || in_array($adoptionCase->status, ['finalized', 'closed', 'cancelled'], true)
+        );
+
     $statusMeta = [
         'pending' => [
             'label' => 'Not submitted',
@@ -27,7 +33,7 @@
             'label' => 'Verified',
             'icon' => 'bi-patch-check',
             'class' => 'is-verified',
-            'description' => 'This document has been accepted and is locked from replacement.',
+            'description' => 'This file was accepted. You may still replace it before final RACCO case approval; a replacement will require a new review.',
         ],
         'rejected' => [
             'label' => 'Needs revision',
@@ -1509,7 +1515,7 @@
                     </div>
                 </div>
                 <div class="docs-stat-value">{{ $verifiedDocumentsCount }}</div>
-                <div class="docs-stat-help">Accepted documents that no longer need changes</div>
+                <div class="docs-stat-help">Accepted files; replacements require another review</div>
             </article>
         </section>
 
@@ -1519,8 +1525,8 @@
                     <div>
                         <h2>Official document checklist</h2>
                         <p>
-                            Search or filter your checklist. Select <strong>Upload</strong> only when a document
-                            needs a new file.
+                            Search or filter your checklist. You may replace an uploaded file before final RACCO
+                            case approval; the replacement returns to <strong>Submitted</strong> status.
                         </p>
                     </div>
 
@@ -1675,7 +1681,7 @@
                                         </a>
                                     @endif
 
-                                    @if($document->status !== 'verified')
+                                    @if(! $documentUploadsLocked && $document->status !== 'not_required')
                                         <button
                                             type="button"
                                             class="docs-btn {{ $needsAction ? 'is-primary' : '' }}"

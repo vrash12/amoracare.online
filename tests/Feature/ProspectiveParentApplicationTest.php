@@ -124,30 +124,17 @@ class ProspectiveParentApplicationTest extends TestCase
             'max_child_age' => 8,
             'open_to_special_needs' => '1',
             'consent' => '1',
+            'terms_accepted' => '1',
         ]);
 
-        $parent = User::with(['role', 'matchingProfile'])->firstOrFail();
-
         $response->assertRedirect(route('email.verification.notice'))
-            ->assertSessionHas('email_verification_user_id', $parent->id)
-            ->assertSessionHas('email_verification_purpose', 'registration');
+            ->assertSessionHas('email_verification_purpose', 'registration')
+            ->assertSessionHas('pending_parent_registration');
 
-        $this->assertSame('Maria Santos', $parent->name);
-        $this->assertSame('maria.santos@example.com', $parent->email);
-        $this->assertSame(User::STATUS_PENDING, $parent->status);
-        $this->assertNull($parent->email_verified_at);
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('parent_matching_profiles', 0);
         $this->assertGuest();
         $this->assertNotNull($this->sentCode);
-        $this->assertSame('prospective_parent', $parent->role->slug);
-        $this->assertTrue(Hash::check('SecurePass123', $parent->password));
-
-        $this->assertInstanceOf(ParentMatchingProfile::class, $parent->matchingProfile);
-        $this->assertSame('female', $parent->matchingProfile->preferred_child_sex);
-        $this->assertTrue($parent->matchingProfile->open_to_special_needs);
-        $this->assertFalse($parent->matchingProfile->home_study_verified);
-        $this->assertSame(0, $parent->matchingProfile->financial_capacity_score);
-        $this->assertSame(0, $parent->matchingProfile->housing_score);
-        $this->assertSame(0, $parent->matchingProfile->parenting_capacity_score);
 
         $this->get(route('email.verification.notice'))
             ->assertOk()
@@ -159,9 +146,71 @@ class ProspectiveParentApplicationTest extends TestCase
         ])->assertRedirect(route('parent.application.submitted'))
             ->assertSessionHas('application_email', 'maria.santos@example.com');
 
+        $parent = User::with(['role', 'matchingProfile'])->firstOrFail();
+
         $this->assertGuest();
-        $this->assertNotNull($parent->fresh()->email_verified_at);
+        $this->assertSame('Maria Santos', $parent->name);
+        $this->assertSame('maria.santos@example.com', $parent->email);
+        $this->assertSame(User::STATUS_PENDING, $parent->status);
+        $this->assertNotNull($parent->email_verified_at);
+        $this->assertSame('prospective_parent', $parent->role->slug);
+        $this->assertTrue(Hash::check('SecurePass123', $parent->password));
+
+        $this->assertInstanceOf(ParentMatchingProfile::class, $parent->matchingProfile);
+        $this->assertSame('female', $parent->matchingProfile->preferred_child_sex);
+        $this->assertTrue($parent->matchingProfile->open_to_special_needs);
+        $this->assertFalse($parent->matchingProfile->home_study_verified);
+        $this->assertSame(0, $parent->matchingProfile->financial_capacity_score);
+        $this->assertSame(0, $parent->matchingProfile->housing_score);
+        $this->assertSame(0, $parent->matchingProfile->parenting_capacity_score);
         $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $parent->id]);
+    }
+
+    public function test_incorrect_registration_otp_does_not_create_an_account(): void
+    {
+        $this->post(route('parent.application.store'), [
+            'name' => 'Maria Santos',
+            'email' => 'maria.santos@example.com',
+            'phone_number' => '09171234567',
+            'password' => 'SecurePass123',
+            'password_confirmation' => 'SecurePass123',
+            'preferred_child_sex' => 'any',
+            'min_child_age' => 0,
+            'max_child_age' => 10,
+            'consent' => '1',
+            'terms_accepted' => '1',
+        ])->assertRedirect(route('email.verification.notice'));
+
+        $wrongCode = $this->sentCode === '000000' ? '999999' : '000000';
+
+        $this->post(route('email.verification.verify'), ['code' => $wrongCode])
+            ->assertSessionHasErrors('code');
+
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('parent_matching_profiles', 0);
+    }
+
+    public function test_terms_must_be_accepted_before_an_otp_is_sent(): void
+    {
+        $this->sentCode = null;
+
+        $this->from(route('parent.application.create'))
+            ->post(route('parent.application.store'), [
+                'name' => 'Maria Santos',
+                'email' => 'maria.santos@example.com',
+                'phone_number' => '09171234567',
+                'password' => 'SecurePass123',
+                'password_confirmation' => 'SecurePass123',
+                'preferred_child_sex' => 'any',
+                'min_child_age' => 0,
+                'max_child_age' => 10,
+                'consent' => '1',
+            ])
+            ->assertRedirect(route('parent.application.create'))
+            ->assertSessionHasErrors('terms_accepted');
+
+        $this->assertNull($this->sentCode);
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_duplicate_email_is_rejected(): void
@@ -191,6 +240,7 @@ class ProspectiveParentApplicationTest extends TestCase
                 'min_child_age' => 0,
                 'max_child_age' => 10,
                 'consent' => '1',
+                'terms_accepted' => '1',
             ])
             ->assertRedirect(route('parent.application.create'))
             ->assertSessionHasErrors('email');

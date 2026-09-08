@@ -142,7 +142,7 @@ class EmailVerificationTest extends TestCase
             'password' => 'password',
         ])->assertRedirect(route('email.verification.notice'))
             ->assertSessionHas('email_verification_user_id', $user->id)
-            ->assertSessionHas('email_verification_purpose', 'login');
+            ->assertSessionHas('email_verification_purpose', 'email_confirmation');
 
         $this->assertGuest();
         $this->assertNotNull($sentCode);
@@ -154,9 +154,9 @@ class EmailVerificationTest extends TestCase
 
         $this->post(route('email.verification.verify'), [
             'code' => $sentCode,
-        ])->assertRedirect(route('dashboard'));
+        ])->assertRedirect(route('parent.dashboard'));
 
-        $this->assertAuthenticatedAs($user);
+        $this->assertAuthenticatedAs($user, 'prospective_parent');
         $this->assertNotNull($user->fresh()->email_verified_at);
         $this->assertNotNull($user->fresh()->last_login_at);
         $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $user->id]);
@@ -181,7 +181,8 @@ class EmailVerificationTest extends TestCase
         ]);
 
         $user = $this->createUser(['role_id' => $roleId]);
-        $user->forceFill(['email_verified_at' => now()->subDay()])->save();
+        $originalVerificationTime = now()->subDay();
+        $user->forceFill(['email_verified_at' => $originalVerificationTime])->save();
 
         $this->post(route('login.store'), [
             'email' => $user->email,
@@ -194,10 +195,10 @@ class EmailVerificationTest extends TestCase
 
         $this->post(route('email.verification.verify'), [
             'code' => $sentCode,
-        ])->assertRedirect(route('dashboard'));
+        ])->assertRedirect(route('parent.dashboard'));
 
-        $this->assertAuthenticatedAs($user);
-        $this->assertTrue($user->fresh()->email_verified_at->equalTo(now()));
+        $this->assertAuthenticatedAs($user, 'prospective_parent');
+        $this->assertTrue($user->fresh()->email_verified_at->equalTo($originalVerificationTime));
     }
 
     public function test_verification_code_expires_and_limits_incorrect_attempts(): void

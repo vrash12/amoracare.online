@@ -42,6 +42,38 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        /*
+        | Each portal has its own session guard. This lets one browser keep an
+        | administrator, prospective parent, and external reviewer signed in
+        | at the same time without one role replacing another role's session.
+        */
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'prospective_parent' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'external_reviewer' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+    ],
+
+    'role_guards' => [
+        'admin' => 'admin',
+        'prospective_parent' => 'prospective_parent',
+        'external_reviewer' => 'external_reviewer',
+    ],
+
+    'role_dashboards' => [
+        'admin' => 'admin.dashboard',
+        'prospective_parent' => 'parent.dashboard',
+        'external_reviewer' => 'reviewer.dashboard',
     ],
 
     /*

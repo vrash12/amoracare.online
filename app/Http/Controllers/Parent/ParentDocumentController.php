@@ -20,11 +20,11 @@ class ParentDocumentController extends Controller
         $user = Auth::user();
 
         $adoptionCase = AdoptionCase::with([
-                'documents' => function ($query) {
-                    $query->where('requirement_scope', 'parent')
-                        ->orderBy('document_name');
-                },
-            ])
+            'documents' => function ($query) {
+                $query->where('requirement_scope', 'parent')
+                    ->orderBy('document_name');
+            },
+        ])
             ->where('prospective_parent_id', $user->id)
             ->latest()
             ->first();
@@ -69,10 +69,10 @@ class ParentDocumentController extends Controller
     {
         $this->authorizeParentDocument($document);
 
-        if ($document->status === 'verified') {
+        if ($this->documentReplacementIsLocked($document)) {
             return redirect()
                 ->route('parent.documents.index')
-                ->with('error', 'This document has already been verified and can no longer be replaced.');
+                ->with('error', 'Documents can no longer be replaced because this case has already been approved or closed.');
         }
 
         $validated = $request->validate([
@@ -84,39 +84,51 @@ class ParentDocumentController extends Controller
             ],
         ]);
 
-        if ($document->file_path) {
-            Storage::disk('local')->delete($document->file_path);
-        }
-
         $file = $validated['file'];
-
+        $oldPath = $document->file_path;
+        $isReplacement = filled($oldPath);
         $path = $file->store('adoption/parent-documents', 'local');
 
-        $document->update([
-            'status' => 'submitted',
-            'file_path' => $path,
-            'original_filename' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
-            'file_size' => $file->getSize(),
-            'uploaded_by' => Auth::id(),
-            'verified_by' => null,
-            'verified_at' => null,
-            'updated_by' => Auth::id(),
-        ]);
+        try {
+            $document->update([
+                'status' => 'submitted',
+                'file_path' => $path,
+                'original_filename' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'remarks' => null,
+                'uploaded_by' => Auth::id(),
+                'verified_by' => null,
+                'verified_at' => null,
+                'updated_by' => Auth::id(),
+            ]);
+        } catch (\Throwable $exception) {
+            Storage::disk('local')->delete($path);
+
+            throw $exception;
+        }
+
+        if ($oldPath && $oldPath !== $path) {
+            Storage::disk('local')->delete($oldPath);
+        }
 
         return redirect()
             ->route('parent.documents.index')
-            ->with('success', 'Document uploaded successfully. Please wait for staff verification.');
+            ->with(
+                'success',
+                $isReplacement
+                    ? 'Document replaced successfully and returned to Submitted status for a new review.'
+                    : 'Document uploaded successfully. Please wait for staff verification.'
+            );
     }
 
     public function download(
         AdoptionCaseDocument $document,
         AdoptionDocumentStorageService $documentStorage
-    ): Response
-    {
+    ): Response {
         $this->authorizeParentDocument($document);
 
-        if (!$documentStorage->exists($document->file_path)) {
+        if (! $documentStorage->exists($document->file_path)) {
             return redirect()
                 ->route('parent.documents.index')
                 ->with('error', 'The uploaded file is missing or no longer available. Please upload the document again.');
@@ -135,11 +147,20 @@ class ParentDocumentController extends Controller
         $document->loadMissing('adoptionCase');
 
         if (
-            !$document->adoptionCase ||
+            ! $document->adoptionCase ||
             $document->adoptionCase->prospective_parent_id !== $user->id ||
             $document->requirement_scope !== 'parent'
         ) {
             abort(403, 'You are not allowed to access this document.');
         }
+    }
+
+    private function documentReplacementIsLocked(AdoptionCaseDocument $document): bool
+    {
+        $adoptionCase = $document->adoptionCase;
+
+        return $document->status === 'not_required'
+            || $adoptionCase?->racco_review_status === 'approved'
+            || in_array($adoptionCase?->status, ['finalized', 'closed', 'cancelled'], true);
     }
 }

@@ -1319,15 +1319,14 @@
         const CLEAR_URL = @json(route('parent.ai.clear'));
         const CSRF_TOKEN = @json(csrf_token());
         const USER_NAME = @json(auth()->user()?->name ?? 'You');
-        const STORAGE_KEY = "amoracare_parent_ai_chat_v4";
-        const LEGACY_STORAGE_KEY = "amoracare_parent_ai_chat_v3";
+        const SERVER_MESSAGES = @json($chatMessages ?? []);
+        const LEGACY_BROWSER_STORAGE_KEYS = [
+            "amoracare_parent_ai_chat_v4",
+            "amoracare_parent_ai_chat_v3"
+        ];
         const MAX_MESSAGE_LENGTH = 2000;
         const REQUEST_TIMEOUT_MS = 120000;
-        const DEFAULT_GREETING = @json(
-            $hasAdoptionCase
-                ? 'Welcome back! Choose one of the initial requests to ask about your current application status, documents, recent updates, or next steps.'
-                : 'Hello! Choose one of the initial requests to learn how to begin an adoption application, prepare requirements, and understand the general process.'
-        );
+        const DEFAULT_GREETING = @json($defaultGreeting);
 
         const defaultMessage = {
             role: "assistant",
@@ -1337,6 +1336,8 @@
             isTyping: false,
             createdAt: new Date().toISOString()
         };
+
+        removeLegacyBrowserHistory();
 
         let isSending = false;
         let messages = loadMessages();
@@ -1351,46 +1352,29 @@
         const scrollLatestBtn = document.getElementById("scrollLatestBtn");
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-        function loadMessages() {
+        function removeLegacyBrowserHistory() {
             try {
-                const savedConversation = localStorage.getItem(STORAGE_KEY)
-                    || localStorage.getItem(LEGACY_STORAGE_KEY);
-                const stored = JSON.parse(savedConversation);
-
-                if (!Array.isArray(stored) || stored.length === 0) {
-                    return [{ ...defaultMessage }];
-                }
-
-                return stored
-                    .filter(item => item && ["user", "assistant"].includes(item.role))
-                    .map(item => ({
-                        role: item.role,
-                        content: String(item.content || ""),
-                        sources: Array.isArray(item.sources) ? item.sources : [],
-                        disclaimer: item.disclaimer || null,
-                        isTyping: false,
-                        createdAt: item.createdAt || new Date().toISOString()
-                    }));
+                LEGACY_BROWSER_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
             } catch (error) {
-                return [{ ...defaultMessage }];
+                // Storage may be disabled. The page never reads browser-stored chat data.
             }
         }
 
-        function saveMessages() {
-            try {
-                const cleanMessages = messages.slice(-30).map(message => ({
-                    role: message.role,
-                    content: message.content || "",
-                    sources: Array.isArray(message.sources) ? message.sources : [],
-                    disclaimer: message.disclaimer || null,
-                    isTyping: false,
-                    createdAt: message.createdAt || new Date().toISOString()
-                }));
-
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanMessages));
-            } catch (error) {
-                showStatus("Your browser could not save this conversation locally.", "error");
+        function loadMessages() {
+            if (!Array.isArray(SERVER_MESSAGES) || SERVER_MESSAGES.length === 0) {
+                return [{ ...defaultMessage }];
             }
+
+            return SERVER_MESSAGES
+                .filter(item => item && ["user", "assistant"].includes(item.role))
+                .map(item => ({
+                    role: item.role,
+                    content: String(item.content || ""),
+                    sources: Array.isArray(item.sources) ? item.sources : [],
+                    disclaimer: item.disclaimer || null,
+                    isTyping: false,
+                    createdAt: item.createdAt || new Date().toISOString()
+                }));
         }
 
         function escapeHtml(text) {
@@ -1949,7 +1933,6 @@
                 createdAt: new Date().toISOString()
             };
 
-            saveMessages();
             renderChat();
         }
 
@@ -1975,7 +1958,6 @@
             userInput.value = "";
             autoResizeTextarea();
             updateComposerState();
-            saveMessages();
             renderChat();
             setLoadingState(true);
             showTypingStatus();
@@ -2044,26 +2026,11 @@
         async function clearChat() {
             if (isSending) return;
 
-            const shouldClear = window.confirm("Clear this conversation from this browser?");
+            const shouldClear = window.confirm("Clear your conversation?");
             if (!shouldClear) return;
 
             try {
-                localStorage.removeItem(STORAGE_KEY);
-            } catch (error) {
-                // Continue clearing the visible conversation.
-            }
-
-            messages = [{
-                ...defaultMessage,
-                content: "Your conversation has been cleared. Choose a different initial request, or type your own adoption-related question.",
-                createdAt: new Date().toISOString()
-            }];
-
-            renderChat();
-            showStatus("Conversation cleared.", "success");
-
-            try {
-                await fetch(CLEAR_URL, {
+                const response = await fetch(CLEAR_URL, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -2071,8 +2038,21 @@
                         "Accept": "application/json"
                     }
                 });
+
+                if (!response.ok) {
+                    throw new Error("The server could not clear the conversation.");
+                }
+
+                messages = [{
+                    ...defaultMessage,
+                    content: "Your conversation has been cleared. Choose a different initial request, or type your own adoption-related question.",
+                    createdAt: new Date().toISOString()
+                }];
+
+                renderChat();
+                showStatus("Conversation cleared.", "success");
             } catch (error) {
-                // The local conversation is already cleared; ignore a remote session-clear failure.
+                showStatus("The conversation could not be cleared. Please try again.", "error");
             }
         }
 

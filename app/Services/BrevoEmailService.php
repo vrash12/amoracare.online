@@ -57,16 +57,22 @@ class BrevoEmailService
                         'email' => $user->email,
                         'contactPixelTrackingConsent' => false,
                     ]],
-                    'subject' => $purpose === 'registration'
-                        ? 'Verify your AmoraCare sign-up'
-                        : 'Your AmoraCare login OTP',
+                    'subject' => match ($purpose) {
+                        'registration' => 'Verify your AmoraCare sign-up',
+                        'email_confirmation' => 'Confirm your AmoraCare email address',
+                        default => 'Your AmoraCare login OTP',
+                    },
                     'htmlContent' => view('emails.email-verification-code', [
                         'user' => $user,
                         'code' => $code,
                         'expiresMinutes' => $expiresMinutes,
                         'purpose' => $purpose,
                     ])->render(),
-                    'tags' => [$purpose === 'registration' ? 'registration-otp' : 'login-otp'],
+                    'tags' => [match ($purpose) {
+                        'registration' => 'registration-otp',
+                        'email_confirmation' => 'email-confirmation-otp',
+                        default => 'login-otp',
+                    }],
                 ]);
         } catch (ConnectionException $exception) {
             Log::warning('Brevo verification email connection failed.', [

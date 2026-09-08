@@ -31,6 +31,13 @@
                 <p>Fields marked with * are required.</p>
             </div>
 
+            @if (session('error'))
+                <div class="error-summary" role="alert">
+                    <strong>Unable to continue</strong>
+                    <p>{{ session('error') }}</p>
+                </div>
+            @endif
+
             @if ($errors->any())
                 <div class="error-summary" role="alert">
                     <strong>Please review the highlighted information.</strong>
@@ -104,16 +111,38 @@
                 </fieldset>
 
                 <label class="check-field consent-field">
-                    <input type="checkbox" name="consent" value="1" required @checked(old('consent'))>
-                    <span>I confirm that the information provided is accurate and consent to its review by authorized AmoraCare personnel for preliminary adoption assistance. *</span>
+                    <input type="checkbox" name="consent" value="1" required aria-describedby="applicationConsentHelp" @checked(old('consent'))>
+                    <span id="applicationConsentHelp">
+                        <strong>Application consent *</strong>
+                        <small>
+                            I confirm that the information provided is accurate and consent to its review by authorized AmoraCare personnel for preliminary adoption assistance.
+                        </small>
+                    </span>
                 </label>
                 @error('consent')<small class="field-error consent-error">{{ $message }}</small>@enderror
+
+                <label class="check-field consent-field">
+                    <input type="checkbox" name="terms_accepted" value="1" required aria-describedby="legalAgreementHelp" @checked(old('terms_accepted'))>
+                    <span id="legalAgreementHelp">
+                        <strong>Terms and privacy acknowledgment *</strong>
+                        <small>
+                            I agree to the <a href="{{ route('legal.terms') }}" target="_blank" rel="noopener noreferrer">Terms and Conditions</a>
+                            and confirm that I have read the <a href="{{ route('legal.privacy') }}" target="_blank" rel="noopener noreferrer">Privacy Notice</a>.
+                        </small>
+                    </span>
+                </label>
+                @error('terms_accepted')<small class="field-error consent-error">{{ $message }}</small>@enderror
 
                 <button type="submit" class="submit-button">Submit Application</button>
                 <p class="submit-help">Your account will remain <strong>Pending</strong> until it is reviewed and activated by authorized staff.</p>
             </form>
         </section>
     </main>
+
+    <footer class="application-legal-footer">
+        <span>&copy; {{ date('Y') }} AmoraCare</span>
+        @include('partials.legal-links')
+    </footer>
 
     <script>
         document.querySelectorAll('[data-auto-capitalize]').forEach((input) => {

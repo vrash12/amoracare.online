@@ -35,9 +35,11 @@
                     <div class="auth-welcome">
                         <h1>One more step to protect your account.</h1>
                         <p>
-                            {{ $purpose === 'registration'
-                                ? 'Verify your email before your prospective adoptive parent application is submitted for staff review.'
-                                : 'Enter the emailed one-time password before AmoraCare grants access to your account.' }}
+                            {{ match ($purpose) {
+                                'registration' => 'Verify your email before your prospective adoptive parent account is created and submitted for staff review.',
+                                'email_confirmation' => 'Confirm that this email address belongs to you. Pending accounts will still require administrator approval.',
+                                default => 'Enter the emailed one-time password before AmoraCare grants access to your account.',
+                            } }}
                         </p>
                     </div>
 
@@ -57,7 +59,11 @@
 
                 <div class="auth-form-container">
                     <div class="auth-form-heading">
-                        <span class="auth-form-label">{{ $purpose === 'registration' ? 'Sign-up verification' : 'Secure login' }}</span>
+                        <span class="auth-form-label">{{ match ($purpose) {
+                            'registration' => 'Sign-up verification',
+                            'email_confirmation' => 'Email confirmation',
+                            default => 'Secure login',
+                        } }}</span>
                         <h2>Enter your one-time password</h2>
                         <p>We sent a six-digit OTP to <strong>{{ $maskedEmail }}</strong>. It expires in {{ $expiresMinutes }} minutes.</p>
                     </div>
@@ -105,7 +111,11 @@
 
                         <button type="submit" class="auth-submit" id="verifyButton">
                             <span class="auth-submit-content">
-                                {{ $purpose === 'registration' ? 'Verify sign-up and submit' : 'Verify OTP and log in' }}
+                                {{ match ($purpose) {
+                                    'registration' => 'Verify sign-up and submit',
+                                    'email_confirmation' => 'Verify email address',
+                                    default => 'Verify OTP and log in',
+                                } }}
                             </span>
                             <span class="auth-submit-loading"><span class="auth-spinner"></span> Verifying...</span>
                         </button>
@@ -122,7 +132,13 @@
                         <a href="{{ route('login') }}">Return to sign in</a>
                         <span>Need assistance? Contact your administrator.</span>
                     </div>
+
                 </div>
+
+                <footer class="auth-mobile-footer">
+                    <span>&copy; {{ date('Y') }} AmoraCare. All rights reserved.</span>
+                    @include('partials.legal-links')
+                </footer>
             </section>
         </section>
     </main>

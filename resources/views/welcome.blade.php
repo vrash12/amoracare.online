@@ -162,7 +162,10 @@
         .footer-links { display: grid; gap: 10px; }
         .footer-links a { color: #bfb3ac; text-decoration: none; font-size: 13px; }
         .footer-links a:hover { color: #fff; }
-        .footer-bottom { display: flex; justify-content: space-between; gap: 18px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .1); color: #94867e; font-size: 11px; }
+        .footer-bottom { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .1); color: #94867e; font-size: 11px; }
+        .footer-bottom .legal-links { display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .footer-bottom .legal-links a { color: #d8cec8; text-decoration: none; font-weight: 750; }
+        .footer-bottom .legal-links a:hover { color: #fff; text-decoration: underline; }
 
         @media (max-width: 1020px) {
             .nav-menu { position: fixed; top: 94px; right: 20px; left: 20px; display: none; align-items: stretch; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: var(--shadow-lg); }
@@ -207,6 +210,9 @@
             .hero-points { display: grid; }
             .hero-visual { min-height: 360px; }
             .photo-caption { display: none; }
+            .nav-menu { right: 14px; left: 14px; }
+            .floating-card { width: 94%; }
+            .footer-bottom { align-items: flex-start; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -215,6 +221,20 @@
         }
     </style>
 </head>
+@php
+    $availableAuthGuards = array_values(array_unique([
+        ...array_values(config('auth.role_guards', [])),
+        'web',
+    ]));
+    $preferredAuthGuard = session('active_auth_guard');
+    $activeLandingGuard = is_string($preferredAuthGuard)
+        && in_array($preferredAuthGuard, $availableAuthGuards, true)
+        && auth($preferredAuthGuard)->check()
+            ? $preferredAuthGuard
+            : collect($availableAuthGuards)
+                ->first(fn (string $guard): bool => auth($guard)->check());
+    $hasAuthenticatedPortal = is_string($activeLandingGuard);
+@endphp
 <body>
     <header class="site-header" id="siteHeader">
         <div class="container">
@@ -239,15 +259,16 @@
                     <a href="#support" class="nav-link">Donation Support</a>
 
                     <div class="nav-session">
-                        @auth
+                        @if($hasAuthenticatedPortal)
                             <a href="{{ route('dashboard') }}" class="button is-small">Open Dashboard</a>
                             <form method="POST" action="{{ route('logout') }}" class="logout-form">
                                 @csrf
+                                <input type="hidden" name="guard" value="{{ $activeLandingGuard }}">
                                 <button type="submit" class="button is-secondary is-small">Log out</button>
                             </form>
                         @else
                             <a href="{{ route('login') }}" class="button is-small">Secure Login</a>
-                        @endauth
+                        @endif
                     </div>
                 </nav>
             </div>
@@ -263,11 +284,11 @@
                     <p class="hero-lead">AmoraCare brings adoption guidance, confidential case workflows, parent documents, reviewer decisions, and accountable donation records into one secure platform.</p>
 
                     <div class="hero-actions">
-                        @auth
+                        @if($hasAuthenticatedPortal)
                             <a href="{{ route('dashboard') }}" class="button">Go to your dashboard <span aria-hidden="true">→</span></a>
                         @else
                             <a href="{{ route('login') }}" class="button">Access AmoraCare <span aria-hidden="true">→</span></a>
-                        @endauth
+                        @endif
                         <a href="#modules" class="button is-secondary">Explore all modules</a>
                     </div>
 
@@ -409,9 +430,13 @@
                     <p>A secure, role-based support system for AMOR Village adoption guidance, case collaboration, document workflows, and accountable donation records.</p>
                 </div>
                 <div class="footer-column"><h3>Explore</h3><div class="footer-links"><a href="#about">About AmoraCare</a><a href="#modules">System Modules</a><a href="#roles">User Portals</a><a href="#support">Donation Support</a></div></div>
-                <div class="footer-column"><h3>System access</h3><div class="footer-links">@auth<a href="{{ route('dashboard') }}">Open Dashboard</a>@else<a href="{{ route('login') }}">Secure Login</a>@endauth<a href="#faq">Important Clarifications</a></div></div>
+                <div class="footer-column"><h3>System access</h3><div class="footer-links">@if($hasAuthenticatedPortal)<a href="{{ route('dashboard') }}">Open Dashboard</a>@else<a href="{{ route('login') }}">Secure Login</a>@endif<a href="#faq">Important Clarifications</a></div></div>
             </div>
-            <div class="footer-bottom"><span>&copy; {{ date('Y') }} AmoraCare. All rights reserved.</span><span>Supporting care through responsible technology.</span></div>
+            <div class="footer-bottom">
+                <span>&copy; {{ date('Y') }} AmoraCare. All rights reserved.</span>
+                @include('partials.legal-links')
+                <span>Supporting care through responsible technology.</span>
+            </div>
         </div>
     </footer>
 

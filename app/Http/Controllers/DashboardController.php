@@ -1,35 +1,43 @@
 <?php
 
-// laravel-app/app/Http/Controllers/DashboardController.php
-
 namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\UserAccountStatusService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
-    public function index(UserAccountStatusService $accountStatusService): RedirectResponse
-    {
-        $authUser = Auth::user();
+    public function index(
+        Request $request,
+        UserAccountStatusService $accountStatusService
+    ): RedirectResponse {
+        $guards = array_values((array) config('auth.role_guards', []));
+        $guards[] = 'web';
+        $guards = array_values(array_unique($guards));
 
-        /*
-        |--------------------------------------------------------------------------
-        | One-time safety fix
-        |--------------------------------------------------------------------------
-        | This prevents errors like:
-        | Attempt to read property "role" on true
-        |
-        | Auth::user() should return a User model, but if something returns true,
-        | we safely log out instead of trying to read $user->role.
-        */
+        $preferredGuard = $request->session()->get('active_auth_guard');
+        $guard = is_string($preferredGuard)
+            && in_array($preferredGuard, $guards, true)
+            && Auth::guard($preferredGuard)->check()
+                ? $preferredGuard
+                : collect($guards)->first(
+                    fn (string $candidate): bool => Auth::guard($candidate)->check()
+                );
+
+        if (! is_string($guard)) {
+            return redirect()
+                ->route('login')
+                ->with('error', 'Please log in again.');
+        }
+
+        Auth::shouldUse($guard);
+        $authUser = Auth::guard($guard)->user();
+
         if (! $authUser instanceof User) {
-            Auth::logout();
-
-            request()->session()->invalidate();
-            request()->session()->regenerateToken();
+            $this->logoutGuard($request, $guard);
 
             return redirect()
                 ->route('login')
@@ -41,10 +49,7 @@ class DashboardController extends Controller
         $accountStatusService->deactivateIfDormant($user);
 
         if ($user->status !== User::STATUS_ACTIVE) {
-            Auth::logout();
-
-            request()->session()->invalidate();
-            request()->session()->regenerateToken();
+            $this->logoutGuard($request, $guard);
 
             return redirect()
                 ->route('login')
@@ -52,10 +57,7 @@ class DashboardController extends Controller
         }
 
         if (! $user->email_verified_at) {
-            Auth::logout();
-
-            request()->session()->invalidate();
-            request()->session()->regenerateToken();
+            $this->logoutGuard($request, $guard);
 
             return redirect()
                 ->route('login')
@@ -63,10 +65,7 @@ class DashboardController extends Controller
         }
 
         if (! $user->role) {
-            Auth::logout();
-
-            request()->session()->invalidate();
-            request()->session()->regenerateToken();
+            $this->logoutGuard($request, $guard);
 
             return redirect()
                 ->route('login')
@@ -74,26 +73,36 @@ class DashboardController extends Controller
         }
 
         $roleSlug = $user->role->slug;
+        $expectedGuard = config("auth.role_guards.{$roleSlug}");
+        $dashboardRoute = config("auth.role_dashboards.{$roleSlug}");
 
-        if ($roleSlug === 'admin') {
-            return redirect()->route('admin.dashboard');
+        if (
+            ! is_string($expectedGuard)
+            || ! is_string($dashboardRoute)
+            || ($guard !== 'web' && ! hash_equals($expectedGuard, $guard))
+        ) {
+            $this->logoutGuard($request, $guard);
+
+            return redirect()
+                ->route('login')
+                ->with('error', 'Unauthorized role. Please contact the administrator.');
         }
 
-        if ($roleSlug === 'prospective_parent') {
-            return redirect()->route('parent.dashboard');
+        $request->session()->put('active_auth_guard', $guard);
+
+        return redirect()->route($dashboardRoute);
+    }
+
+    private function logoutGuard(Request $request, string $guard): void
+    {
+        Auth::guard($guard)->logout();
+
+        if ($request->session()->get('active_auth_guard') === $guard) {
+            $request->session()->forget('active_auth_guard');
         }
 
-        if ($roleSlug === 'external_reviewer') {
-            return redirect()->route('reviewer.dashboard');
-        }
-
-        Auth::logout();
-
-        request()->session()->invalidate();
-        request()->session()->regenerateToken();
-
-        return redirect()
-            ->route('login')
-            ->with('error', 'Unauthorized role. Please contact the administrator.');
+        // Keep the other role guards in the shared browser session intact.
+        $request->session()->regenerate(true);
+        $request->session()->regenerateToken();
     }
 }

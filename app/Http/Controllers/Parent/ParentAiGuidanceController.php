@@ -14,16 +14,34 @@ use Illuminate\View\View;
 
 class ParentAiGuidanceController extends Controller
 {
+    private const CHAT_SESSION_KEY_PREFIX = 'parent_ai_messages_user_';
+
+    private const LEGACY_CHAT_SESSION_KEY = 'parent_ai_messages';
+
     public function index(): View
     {
+        $userId = (int) Auth::id();
+
         $adoptionCase = AdoptionCase::query()
-            ->where('prospective_parent_id', Auth::id())
+            ->where('prospective_parent_id', $userId)
             ->latest()
             ->first();
+
+        $chatMessages = session()->get($this->chatSessionKey($userId), []);
+
+        // This key was shared by every account before histories were user-scoped.
+        // Never render it, and discard it as soon as a parent opens the assistant.
+        session()->forget(self::LEGACY_CHAT_SESSION_KEY);
 
         return view('parent.ai.index', [
             'hasAdoptionCase' => $adoptionCase !== null,
             'initialChatRequests' => $this->initialChatRequests($adoptionCase),
+            'chatMessages' => is_array($chatMessages)
+                ? array_slice($chatMessages, -12)
+                : [],
+            'defaultGreeting' => $adoptionCase
+                ? 'Welcome back! Choose one of the initial requests to ask about your current application status, documents, recent updates, or next steps.'
+                : 'Hello! Choose one of the initial requests to learn how to begin an adoption application, prepare requirements, and understand the general process.',
         ]);
     }
 
@@ -68,7 +86,12 @@ class ParentAiGuidanceController extends Controller
 
         $parentContext = $this->buildParentContext($user, $adoptionCase);
 
-        $history = session()->get('parent_ai_messages', []);
+        $chatSessionKey = $this->chatSessionKey((int) $user->getKey());
+        $history = session()->get($chatSessionKey, []);
+
+        if (! is_array($history)) {
+            $history = [];
+        }
 
         try {
             $legalGuidanceApiKey = config('services.legal_guidance.api_key');
@@ -122,7 +145,7 @@ class ParentAiGuidanceController extends Controller
                 'disclaimer' => $disclaimer,
             ];
 
-            session()->put('parent_ai_messages', array_slice($history, -12));
+            session()->put($chatSessionKey, array_slice($history, -12));
 
             return response()->json([
                 'reply' => $aiReply,
@@ -143,11 +166,17 @@ class ParentAiGuidanceController extends Controller
 
     public function clear(): JsonResponse
     {
-        session()->forget('parent_ai_messages');
+        session()->forget($this->chatSessionKey((int) Auth::id()));
+        session()->forget(self::LEGACY_CHAT_SESSION_KEY);
 
         return response()->json([
             'message' => 'Chat cleared.',
         ]);
+    }
+
+    private function chatSessionKey(int $userId): string
+    {
+        return self::CHAT_SESSION_KEY_PREFIX.$userId;
     }
 
     private function initialChatRequests(?AdoptionCase $adoptionCase): array

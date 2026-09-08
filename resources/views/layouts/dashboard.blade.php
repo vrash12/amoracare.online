@@ -40,12 +40,14 @@
         'external_reviewer' => 'RACCO Reviewer Portal',
         default => 'Dashboard',
     };
+
+    $authGuard = config("auth.role_guards.{$roleSlug}", 'web');
 @endphp
 
 <body class="dashboard-body {{ $roleClass }}">
 
 <div class="dashboard-shell" id="dashboardShell">
-    <aside class="dashboard-sidebar" aria-label="Dashboard sidebar">
+    <aside class="dashboard-sidebar" id="dashboardSidebar" aria-label="Dashboard sidebar">
         <div class="sidebar-top-row">
             <button
                 type="button"
@@ -228,8 +230,16 @@
                 </div>
 
                 <div class="sidebar-footer">
+                    <a href="{{ route('login') }}" class="sidebar-link portal-login-link">
+                        <span class="nav-icon">
+                            <i class="bi bi-person-add"></i>
+                        </span>
+                        <span class="nav-text">Sign in another role</span>
+                    </a>
+
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
+                        <input type="hidden" name="guard" value="{{ $authGuard }}">
 
                         <button type="submit" class="logout-button">
                             <span class="nav-icon">
@@ -244,6 +254,18 @@
     </aside>
 
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <button
+        type="button"
+        class="mobile-sidebar-toggle"
+        id="mobileSidebarToggle"
+        title="Open navigation"
+        aria-label="Open navigation"
+        aria-controls="dashboardSidebar"
+        aria-expanded="false"
+    >
+        <i class="bi bi-list" aria-hidden="true"></i>
+    </button>
 
     <main class="dashboard-main">
         <header class="dashboard-topbar">
@@ -288,6 +310,11 @@
 
             @yield('content')
         </section>
+
+        <footer class="dashboard-legal-footer">
+            <span>&copy; {{ date('Y') }} AmoraCare</span>
+            @include('partials.legal-links')
+        </footer>
     </main>
 </div>
 
@@ -306,16 +333,19 @@
         });
 
         const dashboardShell = document.getElementById('dashboardShell');
+        const dashboardSidebar = document.getElementById('dashboardSidebar');
         const sidebarToggle = document.getElementById('topbarSidebarToggle');
+        const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
         const sidebarMiniLogoButton = document.getElementById('sidebarMiniLogoButton');
         const sidebarBackdrop = document.getElementById('sidebarBackdrop');
 
-        if (!dashboardShell || !sidebarToggle) {
+        if (!dashboardShell || (!sidebarToggle && !mobileSidebarToggle)) {
             return;
         }
 
         const storageKey = 'amoracare_sidebar_collapsed';
         const toggleIconMarkup = '<i class="bi bi-layout-sidebar-inset"></i>';
+        let wasMobileScreen = window.innerWidth <= 768;
 
         function isMobileScreen() {
             return window.innerWidth <= 768;
@@ -323,16 +353,53 @@
 
         function collapseSidebar() {
             dashboardShell.classList.add('sidebar-collapsed');
-            sidebarToggle.setAttribute('aria-expanded', 'false');
-            sidebarToggle.title = 'Expand sidebar';
-            sidebarToggle.innerHTML = toggleIconMarkup;
+            document.body.classList.remove('sidebar-is-open');
+
+            if (dashboardSidebar) {
+                if (isMobileScreen()) {
+                    dashboardSidebar.setAttribute('aria-hidden', 'true');
+                    dashboardSidebar.setAttribute('inert', '');
+                } else {
+                    dashboardSidebar.removeAttribute('aria-hidden');
+                    dashboardSidebar.removeAttribute('inert');
+                }
+            }
+
+            if (sidebarToggle) {
+                sidebarToggle.setAttribute('aria-expanded', 'false');
+                sidebarToggle.title = 'Expand sidebar';
+                sidebarToggle.innerHTML = toggleIconMarkup;
+            }
+
+            if (mobileSidebarToggle) {
+                mobileSidebarToggle.setAttribute('aria-expanded', 'false');
+                mobileSidebarToggle.setAttribute('aria-label', 'Open navigation');
+                mobileSidebarToggle.title = 'Open navigation';
+                mobileSidebarToggle.innerHTML = '<i class="bi bi-list" aria-hidden="true"></i>';
+            }
         }
 
         function expandSidebar() {
             dashboardShell.classList.remove('sidebar-collapsed');
-            sidebarToggle.setAttribute('aria-expanded', 'true');
-            sidebarToggle.title = 'Collapse sidebar';
-            sidebarToggle.innerHTML = toggleIconMarkup;
+            dashboardSidebar?.removeAttribute('aria-hidden');
+            dashboardSidebar?.removeAttribute('inert');
+
+            if (isMobileScreen()) {
+                document.body.classList.add('sidebar-is-open');
+            }
+
+            if (sidebarToggle) {
+                sidebarToggle.setAttribute('aria-expanded', 'true');
+                sidebarToggle.title = 'Collapse sidebar';
+                sidebarToggle.innerHTML = toggleIconMarkup;
+            }
+
+            if (mobileSidebarToggle) {
+                mobileSidebarToggle.setAttribute('aria-expanded', 'true');
+                mobileSidebarToggle.setAttribute('aria-label', 'Close navigation');
+                mobileSidebarToggle.title = 'Close navigation';
+                mobileSidebarToggle.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+            }
         }
 
         function saveState() {
@@ -357,15 +424,20 @@
             }
         }
 
-        sidebarToggle.addEventListener('click', function () {
+        function toggleSidebar() {
             if (dashboardShell.classList.contains('sidebar-collapsed')) {
                 expandSidebar();
             } else {
                 collapseSidebar();
             }
 
-            saveState();
-        });
+            if (!isMobileScreen()) {
+                saveState();
+            }
+        }
+
+        sidebarToggle?.addEventListener('click', toggleSidebar);
+        mobileSidebarToggle?.addEventListener('click', toggleSidebar);
 
         if (sidebarMiniLogoButton) {
             sidebarMiniLogoButton.addEventListener('click', function () {
@@ -377,12 +449,27 @@
         if (sidebarBackdrop) {
             sidebarBackdrop.addEventListener('click', function () {
                 collapseSidebar();
-                saveState();
             });
         }
 
         window.addEventListener('resize', function () {
-            initializeSidebar();
+            const mobileScreen = isMobileScreen();
+
+            if (mobileScreen !== wasMobileScreen) {
+                wasMobileScreen = mobileScreen;
+                initializeSidebar();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (
+                event.key === 'Escape'
+                && isMobileScreen()
+                && !dashboardShell.classList.contains('sidebar-collapsed')
+            ) {
+                collapseSidebar();
+                mobileSidebarToggle?.focus();
+            }
         });
 
         initializeSidebar();

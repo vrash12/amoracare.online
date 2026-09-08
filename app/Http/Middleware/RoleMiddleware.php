@@ -26,9 +26,8 @@ class RoleMiddleware
         $this->accountStatusService->deactivateIfDormant($user);
 
         if ($user->status !== User::STATUS_ACTIVE) {
-            Auth::logout();
-
-            $request->session()->invalidate();
+            $this->logoutCurrentGuard($request);
+            $request->session()->regenerate(true);
             $request->session()->regenerateToken();
 
             return redirect()
@@ -37,9 +36,8 @@ class RoleMiddleware
         }
 
         if (! $user->email_verified_at) {
-            Auth::logout();
-
-            $request->session()->invalidate();
+            $this->logoutCurrentGuard($request);
+            $request->session()->regenerate(true);
             $request->session()->regenerateToken();
 
             return redirect()
@@ -51,6 +49,19 @@ class RoleMiddleware
             abort(403, 'You do not have permission to access this page.');
         }
 
+        $request->session()->put('active_auth_guard', Auth::getDefaultDriver());
+
         return $next($request);
+    }
+
+    private function logoutCurrentGuard(Request $request): void
+    {
+        $guard = Auth::getDefaultDriver();
+
+        Auth::guard($guard)->logout();
+
+        if ($request->session()->get('active_auth_guard') === $guard) {
+            $request->session()->forget('active_auth_guard');
+        }
     }
 }

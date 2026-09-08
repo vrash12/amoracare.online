@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 
 class EmailVerificationService
@@ -67,6 +68,127 @@ class EmailVerificationService
     }
 
     /**
+     * Send an OTP before a public applicant account exists.
+     *
+     * @return array{code_hash: string, attempts: int, sent_at: string, expires_at: string}
+     */
+    public function createPendingChallenge(
+        string $name,
+        string $email,
+        string $purpose = 'registration'
+    ): array {
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $sentAt = now();
+
+        $recipient = new User([
+            'name' => $name,
+            'email' => strtolower(trim($email)),
+        ]);
+
+        $this->emailService->sendVerificationCode(
+            $recipient,
+            $code,
+            $this->expiresMinutes(),
+            $purpose
+        );
+
+        return [
+            'code_hash' => Hash::make($code),
+            'attempts' => 0,
+            'sent_at' => $sentAt->toIso8601String(),
+            'expires_at' => $sentAt->copy()->addMinutes($this->expiresMinutes())->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $challenge
+     * @return array{sent: bool, challenge: array<string, mixed>}
+     */
+    public function resendPendingChallenge(
+        array $challenge,
+        string $name,
+        string $email,
+        string $purpose = 'registration'
+    ): array {
+        $sentAt = $this->challengeDate($challenge['sent_at'] ?? null);
+        $expiresAt = $this->challengeDate($challenge['expires_at'] ?? null);
+
+        if (
+            is_string($challenge['code_hash'] ?? null)
+            && $sentAt?->greaterThan(now()->subSeconds($this->resendCooldownSeconds()))
+            && $expiresAt?->isFuture()
+        ) {
+            return ['sent' => false, 'challenge' => $challenge];
+        }
+
+        return [
+            'sent' => true,
+            'challenge' => $this->createPendingChallenge($name, $email, $purpose),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $challenge
+     * @return array{verified: bool, message: string, challenge: array<string, mixed>|null}
+     */
+    public function verifyPendingChallenge(array $challenge, string $code): array
+    {
+        $codeHash = $challenge['code_hash'] ?? null;
+        $expiresAt = $this->challengeDate($challenge['expires_at'] ?? null);
+        $attempts = max(0, (int) ($challenge['attempts'] ?? 0));
+
+        if (! is_string($codeHash) || $codeHash === '' || ! $expiresAt) {
+            return [
+                'verified' => false,
+                'message' => 'No verification code was found. Request a new code.',
+                'challenge' => null,
+            ];
+        }
+
+        if ($expiresAt->lessThanOrEqualTo(now())) {
+            return [
+                'verified' => false,
+                'message' => 'The verification code has expired. Request a new code.',
+                'challenge' => null,
+            ];
+        }
+
+        if ($attempts >= $this->maxAttempts()) {
+            return [
+                'verified' => false,
+                'message' => 'Too many incorrect attempts. Request a new code.',
+                'challenge' => null,
+            ];
+        }
+
+        if (! Hash::check($code, $codeHash)) {
+            $attempts++;
+
+            if ($attempts >= $this->maxAttempts()) {
+                return [
+                    'verified' => false,
+                    'message' => 'Too many incorrect attempts. Request a new code.',
+                    'challenge' => null,
+                ];
+            }
+
+            $challenge['attempts'] = $attempts;
+
+            return [
+                'verified' => false,
+                'message' => 'The verification code is incorrect.',
+                'challenge' => $challenge,
+            ];
+        }
+
+        return [
+            'verified' => true,
+            'message' => 'Your email address has been verified.',
+            'challenge' => null,
+        ];
+    }
+
+    /**
      * @return array{verified: bool, message: string}
      */
     public function verifyCode(User $user, string $code): array
@@ -123,5 +245,18 @@ class EmailVerificationService
             'verified' => true,
             'message' => 'Your email address has been verified.',
         ];
+    }
+
+    private function challengeDate(mixed $value): ?Carbon
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

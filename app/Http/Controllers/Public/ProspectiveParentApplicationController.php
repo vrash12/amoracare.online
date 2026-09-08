@@ -3,13 +3,10 @@
 namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
-use App\Models\ParentMatchingProfile;
-use App\Models\Role;
 use App\Models\User;
 use App\Services\EmailVerificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -26,6 +23,10 @@ class ProspectiveParentApplicationController extends Controller
         Request $request,
         EmailVerificationService $emailVerificationService
     ): RedirectResponse {
+        $request->merge([
+            'email' => strtolower(trim((string) $request->input('email'))),
+        ]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
@@ -36,64 +37,52 @@ class ProspectiveParentApplicationController extends Controller
             'max_child_age' => ['required', 'integer', 'min:0', 'max:18', 'gte:min_child_age'],
             'open_to_special_needs' => ['nullable', 'boolean'],
             'consent' => ['accepted'],
+            'terms_accepted' => ['accepted'],
         ]);
 
-        $parent = DB::transaction(function () use ($validated, $request): User {
-            $role = Role::firstOrCreate(
-                ['slug' => 'prospective_parent'],
-                [
-                    'name' => 'Prospective Adoptive Parent',
-                    'description' => 'Applicant for adoption assistance, case monitoring, and matching review.',
-                ]
-            );
-
-            $parent = User::create([
-                'role_id' => $role->id,
-                'name' => $validated['name'],
-                'email' => strtolower($validated['email']),
-                'phone_number' => $validated['phone_number'],
-                'status' => User::STATUS_PENDING,
-                'password' => Hash::make($validated['password']),
-            ]);
-
-            ParentMatchingProfile::create([
-                'user_id' => $parent->id,
-                'preferred_child_sex' => $validated['preferred_child_sex'],
-                'min_child_age' => $validated['min_child_age'],
-                'max_child_age' => $validated['max_child_age'],
-                'open_to_special_needs' => $request->boolean('open_to_special_needs'),
-                'home_study_verified' => false,
-                'financial_capacity_score' => 0,
-                'housing_score' => 0,
-                'parenting_capacity_score' => 0,
-                'matching_notes' => null,
-            ]);
-
-            return $parent;
-        });
-
-        $request->session()->put([
-            'email_verification_user_id' => $parent->id,
-            'email_verification_remember' => false,
-            'email_verification_purpose' => 'registration',
-        ]);
+        $email = strtolower($validated['email']);
+        $normalizedName = (new User(['name' => $validated['name']]))->name;
 
         try {
-            $sent = $emailVerificationService->sendCode($parent, 'registration');
+            $challenge = $emailVerificationService->createPendingChallenge(
+                $normalizedName,
+                $email,
+                'registration'
+            );
         } catch (RuntimeException $exception) {
-            return redirect()
-                ->route('email.verification.notice')
-                ->withErrors(['code' => $exception->getMessage()]);
+            return back()
+                ->withInput($request->except(['password', 'password_confirmation']))
+                ->withErrors(['email' => $exception->getMessage()]);
         }
+
+        $request->session()->forget([
+            'email_verification_user_id',
+            'email_verification_remember',
+            'email_verification_guard',
+        ]);
+
+        $request->session()->put([
+            'email_verification_purpose' => 'registration',
+            'pending_parent_registration' => [
+                'data' => [
+                    'name' => $normalizedName,
+                    'email' => $email,
+                    'phone_number' => $validated['phone_number'],
+                    'password_hash' => Hash::make($validated['password']),
+                    'preferred_child_sex' => $validated['preferred_child_sex'],
+                    'min_child_age' => (int) $validated['min_child_age'],
+                    'max_child_age' => (int) $validated['max_child_age'],
+                    'open_to_special_needs' => $request->boolean('open_to_special_needs'),
+                    'consented_at' => now()->toIso8601String(),
+                    'terms_version' => (string) config('legal.terms_version'),
+                ],
+                'challenge' => $challenge,
+            ],
+        ]);
 
         return redirect()
             ->route('email.verification.notice')
-            ->with(
-                'success',
-                $sent
-                    ? 'A sign-up OTP was sent to your email address.'
-                    : 'A sign-up OTP was sent recently. Check your inbox or wait before requesting another.'
-            );
+            ->with('success', 'A sign-up OTP was sent to your email address. Your account will only be created after successful verification.');
     }
 
     public function submitted(Request $request): View|RedirectResponse

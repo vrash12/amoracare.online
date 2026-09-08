@@ -32,6 +32,12 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+Route::view('/terms-and-conditions', 'legal.terms')
+    ->name('legal.terms');
+
+Route::view('/privacy-notice', 'legal.privacy')
+    ->name('legal.privacy');
+
 Route::get('/apply/adoptive-parent', [ProspectiveParentApplicationController::class, 'create'])
     ->name('parent.application.create');
 
@@ -50,11 +56,14 @@ Route::get('/apply/adoptive-parent/submitted', [ProspectiveParentApplicationCont
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('guest')->group(function () {
+// The public sign-in and OTP pages only check the legacy web guard. Portal
+// guards remain independent so another role can sign in on the same browser.
+Route::middleware('guest:web')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])
         ->name('login');
 
     Route::post('/login', [LoginController::class, 'login'])
+        ->middleware('throttle:5,1')
         ->name('login.store');
 
     Route::get('/email/verify', [EmailVerificationController::class, 'show'])
@@ -70,7 +79,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('/logout', [LoginController::class, 'logout'])
-    ->middleware('auth')
+    ->middleware('auth:admin,prospective_parent,external_reviewer,web')
     ->name('logout');
 
 /*
@@ -84,10 +93,8 @@ Route::post('/logout', [LoginController::class, 'logout'])
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])
-        ->name('dashboard');
-});
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->name('dashboard');
 
 /*
 |--------------------------------------------------------------------------
@@ -95,7 +102,7 @@ Route::middleware('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'role:admin'])
+Route::middleware(['auth:admin,web', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
@@ -154,7 +161,7 @@ Route::middleware(['auth', 'role:admin'])
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'role:prospective_parent'])
+Route::middleware(['auth:prospective_parent,web', 'role:prospective_parent'])
     ->prefix('parent')
     ->name('parent.')
     ->group(function () {
@@ -189,7 +196,7 @@ Route::middleware(['auth', 'role:prospective_parent'])
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'role:external_reviewer'])
+Route::middleware(['auth:external_reviewer,web', 'role:external_reviewer'])
     ->prefix('reviewer')
     ->name('reviewer.')
     ->group(function () {

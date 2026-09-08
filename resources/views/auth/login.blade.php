@@ -484,10 +484,12 @@
                             Need assistance? Contact your administrator.
                         </span>
                     </div>
+
                 </div>
 
                 <footer class="auth-mobile-footer">
-                    &copy; {{ date('Y') }} AmoraCare. All rights reserved.
+                    <span>&copy; {{ date('Y') }} AmoraCare. All rights reserved.</span>
+                    @include('partials.legal-links')
                 </footer>
             </section>
         </section>

@@ -27,6 +27,10 @@ class LoginController extends Controller
         UserAccountStatusService $accountStatusService,
         EmailVerificationService $emailVerificationService
     ): RedirectResponse {
+        $request->merge([
+            'email' => strtolower(trim((string) $request->input('email'))),
+        ]);
+
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:150'],
             'password' => ['required', 'string'],
@@ -51,13 +55,21 @@ class LoginController extends Controller
             ]);
         }
 
-        if ($user->status !== User::STATUS_ACTIVE) {
-            $message = $user->status === User::STATUS_PENDING
-                ? 'Your account is pending administrator approval.'
-                : 'Your account is inactive. Please contact the administrator.';
-
+        if ($user->status === User::STATUS_INACTIVE) {
             throw ValidationException::withMessages([
-                'email' => $message,
+                'email' => 'Your account is inactive. Please contact the administrator.',
+            ]);
+        }
+
+        if (! in_array($user->status, [User::STATUS_ACTIVE, User::STATUS_PENDING], true)) {
+            throw ValidationException::withMessages([
+                'email' => 'Your account is not available. Please contact the administrator.',
+            ]);
+        }
+
+        if ($user->status === User::STATUS_PENDING && $user->email_verified_at) {
+            throw ValidationException::withMessages([
+                'email' => 'Your email is verified, but your account is still pending administrator approval.',
             ]);
         }
 
@@ -67,19 +79,49 @@ class LoginController extends Controller
             ]);
         }
 
-        $request->session()->put([
-            'email_verification_user_id' => $user->id,
-            'email_verification_remember' => $request->boolean('remember'),
-            'email_verification_purpose' => 'login',
-        ]);
+        $roleSlug = $user->role->slug;
+        $guard = config("auth.role_guards.{$roleSlug}");
+
+        if (! is_string($guard) || $guard === '') {
+            throw ValidationException::withMessages([
+                'email' => 'Your account role cannot access a system portal. Please contact the administrator.',
+            ]);
+        }
+
+        $purpose = $user->email_verified_at ? 'login' : 'email_confirmation';
+
+        if ($purpose === 'login' && $user->status !== User::STATUS_ACTIVE) {
+            $message = 'Your account is pending administrator approval.';
+
+            throw ValidationException::withMessages([
+                'email' => $message,
+            ]);
+        }
+
+        $existingChallenge = [];
+
+        if (
+            (int) $request->session()->get('email_verification_user_id') === (int) $user->id
+            && $request->session()->get('email_verification_purpose') === $purpose
+            && is_array($request->session()->get('email_verification_challenge'))
+        ) {
+            $existingChallenge = $request->session()->get('email_verification_challenge');
+        }
 
         try {
-            $sent = $emailVerificationService->sendCode($user, 'login');
+            $challengeResult = $emailVerificationService->resendPendingChallenge(
+                $existingChallenge,
+                $user->name,
+                $user->email,
+                $purpose
+            );
         } catch (\RuntimeException $exception) {
             $request->session()->forget([
                 'email_verification_user_id',
                 'email_verification_remember',
                 'email_verification_purpose',
+                'email_verification_guard',
+                'email_verification_challenge',
             ]);
 
             throw ValidationException::withMessages([
@@ -87,21 +129,58 @@ class LoginController extends Controller
             ]);
         }
 
+        $request->session()->forget('pending_parent_registration');
+        $request->session()->put([
+            'email_verification_user_id' => $user->id,
+            'email_verification_remember' => $request->boolean('remember'),
+            'email_verification_purpose' => $purpose,
+            'email_verification_guard' => $guard,
+            'email_verification_challenge' => $challengeResult['challenge'],
+        ]);
+
         return redirect()
             ->route('email.verification.notice')
             ->with(
                 'success',
-                $sent
-                    ? 'A login OTP was sent to your email address.'
-                    : 'A login OTP was sent recently. Check your inbox or wait before requesting another.'
+                $challengeResult['sent']
+                    ? ($purpose === 'email_confirmation'
+                        ? 'A verification OTP was sent to confirm that your email address is legitimate.'
+                        : 'A login OTP was sent to your email address.')
+                    : 'An OTP was sent recently. Check your inbox or wait before requesting another.'
             );
     }
 
     public function logout(Request $request): RedirectResponse
     {
-        Auth::logout();
+        $allowedGuards = array_values((array) config('auth.role_guards', []));
+        $allowedGuards[] = 'web';
 
-        $request->session()->invalidate();
+        $requestedGuard = (string) $request->input('guard', '');
+        $hasExplicitGuard = in_array($requestedGuard, $allowedGuards, true);
+        $guard = $hasExplicitGuard ? $requestedGuard : Auth::getDefaultDriver();
+
+        if ($hasExplicitGuard && ! Auth::guard($guard)->check()) {
+            return redirect()
+                ->route('login')
+                ->with('error', 'That portal session has already ended.');
+        }
+
+        if (! $hasExplicitGuard && (! in_array($guard, $allowedGuards, true) || ! Auth::guard($guard)->check())) {
+            $guard = collect($allowedGuards)
+                ->first(fn (string $candidate): bool => Auth::guard($candidate)->check());
+        }
+
+        if (is_string($guard)) {
+            Auth::guard($guard)->logout();
+
+            if ($request->session()->get('active_auth_guard') === $guard) {
+                $request->session()->forget('active_auth_guard');
+            }
+        }
+
+        // Do not invalidate the shared session. Other portal guards may still
+        // be signed in on this browser and must remain intact.
+        $request->session()->regenerate(true);
         $request->session()->regenerateToken();
 
         return redirect()

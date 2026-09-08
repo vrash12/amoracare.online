@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class User extends Authenticatable
@@ -50,7 +51,11 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::creating(function (User $user): void {
-            if ($user->status === self::STATUS_ACTIVE && ! $user->activated_at) {
+            if (
+                $user->status === self::STATUS_ACTIVE
+                && ! $user->activated_at
+                && Schema::hasColumn($user->getTable(), 'activated_at')
+            ) {
                 $user->activated_at = now();
             }
         });
@@ -64,13 +69,17 @@ class User extends Authenticatable
                 $user->isDirty('status')
                 && $user->status === self::STATUS_ACTIVE
                 && $user->getOriginal('status') !== self::STATUS_ACTIVE
+                && Schema::hasColumn($user->getTable(), 'activated_at')
             ) {
                 $user->activated_at = now();
             }
         });
 
         static::updated(function (User $user): void {
-            if ($user->wasChanged('email')) {
+            if (
+                $user->wasChanged('email')
+                && Schema::hasTable('email_verification_codes')
+            ) {
                 $user->emailVerificationCode()->delete();
             }
         });
