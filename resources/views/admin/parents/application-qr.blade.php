@@ -52,8 +52,8 @@
                 <div class="qr-guide">
                     <div class="qr-step"><div class="qr-step-number">1</div><div><strong>Scan the QR code</strong><p>The applicant scans the code using a phone camera and opens the secure AmoraCare form.</p></div></div>
                     <div class="qr-step"><div class="qr-step-number">2</div><div><strong>Complete the preliminary form</strong><p>The applicant provides contact details, creates a password, and records basic matching preferences.</p></div></div>
-                    <div class="qr-step"><div class="qr-step-number">3</div><div><strong>Review the Pending account</strong><p>The submission appears in Parent Profiles with a Pending status for authorized staff review.</p></div></div>
-                    <div class="qr-step"><div class="qr-step-number">4</div><div><strong>Approve and verify</strong><p>After staff activates the account, the parent verifies their email with a code during the first login.</p></div></div>
+                    <div class="qr-step"><div class="qr-step-number">3</div><div><strong>Verify the email address</strong><p>AmoraCare sends a one-time code to the applicant. The account is created only after the code is entered successfully.</p></div></div>
+                    <div class="qr-step"><div class="qr-step-number">4</div><div><strong>Review the Pending account</strong><p>The verified submission appears in Parent Profiles with a Pending status until authorized staff activate it.</p></div></div>
                 </div>
                 <div class="qr-note"><strong>Staff-controlled assessment:</strong> Home-study verification, readiness scores, internal notes, and final adoption decisions are not included in the public form.</div>
             </section>

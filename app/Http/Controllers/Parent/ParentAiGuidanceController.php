@@ -35,21 +35,48 @@ class ParentAiGuidanceController extends Controller
 
         return view('parent.ai.index', [
             'hasAdoptionCase' => $adoptionCase !== null,
-            'initialChatRequests' => $this->initialChatRequests($adoptionCase),
+            'faqCategories' => $this->faqCategories(),
+            'frequentlyAskedQuestions' => $this->frequentlyAskedQuestions(),
             'chatMessages' => is_array($chatMessages)
                 ? array_slice($chatMessages, -12)
                 : [],
             'defaultGreeting' => $adoptionCase
-                ? 'Welcome back! Choose one of the initial requests to ask about your current application status, documents, recent updates, or next steps.'
-                : 'Hello! Choose one of the initial requests to learn how to begin an adoption application, prepare requirements, and understand the general process.',
+                ? 'Welcome back! Select a topic and question for a quick answer, or type your own question. If the FAQ cannot help, the AI assistant will take over.'
+                : 'Hello! Select a topic and question for a quick answer, or type your own question. If the FAQ cannot help, the AI assistant will take over.',
         ]);
+    }
+
+    public function faq(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'faq_id' => ['required', 'string', 'max:80'],
+        ]);
+
+        $faq = collect($this->frequentlyAskedQuestions())
+            ->firstWhere('id', $validated['faq_id']);
+
+        if (! $faq) {
+            return response()->json([
+                'message' => 'The selected frequently asked question is unavailable.',
+            ], 422);
+        }
+
+        return $this->approvedFaqResponse($faq, $faq['question']);
     }
 
     public function chat(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:2000'],
+            'use_ai' => ['sometimes', 'boolean'],
         ]);
+
+        $userMessage = $validated['message'];
+        $faq = ($validated['use_ai'] ?? false) ? null : $this->matchFrequentlyAskedQuestion($userMessage);
+
+        if ($faq) {
+            return $this->approvedFaqResponse($faq, $userMessage);
+        }
 
         $legalGuidanceUrl = config('services.legal_guidance.url');
 
@@ -64,8 +91,6 @@ class ParentAiGuidanceController extends Controller
             'role',
             'matchingProfile',
         ]);
-
-        $userMessage = $validated['message'];
 
         $adoptionCase = AdoptionCase::with([
             'prospectiveParent.matchingProfile',
@@ -113,7 +138,7 @@ class ParentAiGuidanceController extends Controller
                 ->post($legalGuidanceUrl, [
                     'question' => $userMessage,
                     'parent_context' => $parentContext,
-                    'conversation_history' => array_slice($history, -6),
+                    'conversation_history' => $this->aiConversationHistory($history),
                 ]);
 
             if ($response->failed()) {
@@ -136,6 +161,7 @@ class ParentAiGuidanceController extends Controller
             $history[] = [
                 'role' => 'user',
                 'content' => $userMessage,
+                'origin' => 'ai_guidance',
             ];
 
             $history[] = [
@@ -143,6 +169,7 @@ class ParentAiGuidanceController extends Controller
                 'content' => $aiReply,
                 'sources' => $sources,
                 'disclaimer' => $disclaimer,
+                'origin' => 'ai_guidance',
             ];
 
             session()->put($chatSessionKey, array_slice($history, -12));
@@ -151,6 +178,7 @@ class ParentAiGuidanceController extends Controller
                 'reply' => $aiReply,
                 'sources' => $sources,
                 'disclaimer' => $disclaimer,
+                'answer_type' => 'ai_guidance',
             ]);
         } catch (\Throwable $e) {
             return response()->json([
@@ -179,127 +207,320 @@ class ParentAiGuidanceController extends Controller
         return self::CHAT_SESSION_KEY_PREFIX.$userId;
     }
 
-    private function initialChatRequests(?AdoptionCase $adoptionCase): array
+    private function approvedFaqResponse(array $faq, string $userMessage): JsonResponse
     {
-        if (! $adoptionCase) {
-            return [
-                [
-                    'title' => 'Begin an Application',
-                    'description' => 'Learn how the adoption process starts',
-                    'question' => 'How do I begin an adoption application, and what should I prepare first?',
-                    'icon' => 'bi-play-circle',
-                    'class' => 'is-status',
-                ],
-                [
-                    'title' => 'Initial Documents',
-                    'description' => 'Review common starting requirements',
-                    'question' => 'What documents should a prospective adoptive parent prepare before starting an application?',
-                    'icon' => 'bi-file-earmark-check',
-                    'class' => 'is-documents',
-                ],
-                [
-                    'title' => 'Basic Qualifications',
-                    'description' => 'Understand general eligibility rules',
-                    'question' => 'What are the basic qualifications for prospective adoptive parents in the Philippines?',
-                    'icon' => 'bi-person-check',
-                    'class' => 'is-requirements',
-                ],
-                [
-                    'title' => 'Home Study',
-                    'description' => 'Learn its purpose and process',
-                    'question' => 'What is a Home Study Report, and what happens during the home study process?',
-                    'icon' => 'bi-house-check',
-                    'class' => 'is-home-study',
-                ],
-                [
-                    'title' => 'Pre-Adoption Forum',
-                    'description' => 'Know what to expect and prepare',
-                    'question' => 'What is the purpose of the pre-adoption forum, and how should I prepare for it?',
-                    'icon' => 'bi-people',
-                    'class' => 'is-forum',
-                ],
-                [
-                    'title' => 'Process Timeline',
-                    'description' => 'Understand the usual adoption stages',
-                    'question' => 'What are the usual stages of the adoption process, and what may affect the timeline?',
-                    'icon' => 'bi-clock-history',
-                    'class' => 'is-timeline',
-                ],
-                [
-                    'title' => 'Responsible Agencies',
-                    'description' => 'Understand the roles of NACC and RACCO',
-                    'question' => 'What are the roles of NACC, RACCO, DSWD, and the social worker in the adoption process?',
-                    'icon' => 'bi-buildings',
-                    'class' => 'is-support',
-                ],
-                [
-                    'title' => 'Privacy and Matching',
-                    'description' => 'Learn why protected records are restricted',
-                    'question' => 'Why can prospective adoptive parents not browse child profiles or matching rankings?',
-                    'icon' => 'bi-shield-lock',
-                    'class' => 'is-privacy',
-                ],
-            ];
+        $chatSessionKey = $this->chatSessionKey((int) Auth::id());
+        $history = session()->get($chatSessionKey, []);
+
+        if (! is_array($history)) {
+            $history = [];
         }
 
-        $statusLabel = $adoptionCase->status_label;
+        $sources = [[
+            'title' => 'AmoraCare FAQ',
+            'source' => 'AmoraCare FAQ',
+        ]];
+        $disclaimer = 'Predefined FAQ answer. Select Need more help? Ask AI if this does not answer your question.';
 
+        $history[] = [
+            'role' => 'user',
+            'content' => $userMessage,
+            'origin' => 'approved_faq',
+        ];
+
+        $history[] = [
+            'role' => 'assistant',
+            'content' => $faq['answer'],
+            'sources' => $sources,
+            'disclaimer' => $disclaimer,
+            'origin' => 'approved_faq',
+            'question' => $userMessage,
+        ];
+
+        session()->put($chatSessionKey, array_slice($history, -12));
+
+        return response()->json([
+            'question' => $userMessage,
+            'reply' => $faq['answer'],
+            'sources' => $sources,
+            'disclaimer' => $disclaimer,
+            'answer_type' => 'approved_faq',
+            'matched_faq_id' => $faq['id'],
+        ]);
+    }
+
+    private function matchFrequentlyAskedQuestion(string $message): ?array
+    {
+        $normalizedMessage = $this->normalizeFaqText($message);
+
+        if ($normalizedMessage === '') {
+            return null;
+        }
+
+        $globalAiPriorityPhrases = [
+            'appeal',
+            'denied',
+            'denial',
+            'rejected',
+            'error',
+            'failed',
+            'not working',
+            'why was my',
+            'why is my',
+            'based on my',
+            'which of my',
+            'latest update',
+        ];
+
+        if (collect($globalAiPriorityPhrases)->contains(
+            fn (string $phrase): bool => $this->containsNormalizedPhrase($normalizedMessage, $phrase)
+        )) {
+            return null;
+        }
+
+        $matches = [];
+
+        foreach ($this->frequentlyAskedQuestions() as $faq) {
+            $shouldDeferToAi = collect($faq['ai_priority_phrases'] ?? [])
+                ->contains(fn (string $phrase): bool => $this->containsNormalizedPhrase(
+                    $normalizedMessage,
+                    $phrase
+                ));
+
+            if ($shouldDeferToAi) {
+                continue;
+            }
+
+            $exactPhrases = array_merge(
+                [$faq['title'], $faq['question']],
+                $faq['match_phrases'] ?? []
+            );
+
+            foreach ($exactPhrases as $phrase) {
+                $normalizedPhrase = $this->normalizeFaqText($phrase);
+
+                if ($normalizedMessage === $normalizedPhrase) {
+                    return $faq;
+                }
+            }
+
+            $matchesApprovedPhrase = collect($faq['match_phrases'] ?? [])
+                ->contains(fn (string $phrase): bool => mb_strlen($this->normalizeFaqText($phrase)) >= 12
+                    && $this->containsNormalizedPhrase($normalizedMessage, $phrase));
+
+            $matchesRequiredTerms = collect($faq['match_terms'] ?? [])
+                ->contains(fn (array $requiredTerms): bool => collect($requiredTerms)
+                    ->every(fn (string $term): bool => $this->containsNormalizedPhrase(
+                        $normalizedMessage,
+                        $term
+                    )));
+
+            if ($matchesApprovedPhrase || $matchesRequiredTerms) {
+                $matches[$faq['id']] = $faq;
+            }
+        }
+
+        return count($matches) === 1 ? array_values($matches)[0] : null;
+    }
+
+    private function aiConversationHistory(array $history): array
+    {
+        return collect($history)
+            ->filter(fn ($message): bool => is_array($message)
+                && ($message['origin'] ?? 'ai_guidance') !== 'approved_faq')
+            ->values()
+            ->slice(-6)
+            ->values()
+            ->all();
+    }
+
+    private function normalizeFaqText(string $value): string
+    {
+        $normalized = mb_strtolower($value);
+        $normalized = preg_replace('/[^\pL\pN]+/u', ' ', $normalized) ?? '';
+
+        return trim(preg_replace('/\s+/u', ' ', $normalized) ?? '');
+    }
+
+    private function containsNormalizedPhrase(string $normalizedText, string $phrase): bool
+    {
+        $normalizedPhrase = $this->normalizeFaqText($phrase);
+
+        return $normalizedPhrase !== ''
+            && str_contains(" {$normalizedText} ", " {$normalizedPhrase} ");
+    }
+
+    private function faqCategories(): array
+    {
         return [
             [
-                'title' => 'My Current Status',
-                'description' => "Understand the {$statusLabel} stage",
-                'question' => "My application status is {$statusLabel}. What does this mean?",
-                'icon' => 'bi-signpost-split',
+                'id' => 'account-access',
+                'title' => 'Account & Access',
+                'description' => 'Registration, verification, and account status',
+                'icon' => 'bi-person-lock',
                 'class' => 'is-status',
             ],
             [
-                'title' => 'My Next Steps',
-                'description' => 'Know what you should do next',
-                'question' => 'Based on my current application, what should I do next?',
-                'icon' => 'bi-arrow-right-circle',
-                'class' => 'is-process',
-            ],
-            [
-                'title' => 'Documents Needing Action',
-                'description' => 'Check pending or returned requirements',
-                'question' => 'Which of my documents are pending, rejected, expired, or still need my attention?',
-                'icon' => 'bi-file-earmark-excel',
+                'id' => 'application-documents',
+                'title' => 'Application & Documents',
+                'description' => 'Requirements, uploads, and file replacement',
+                'icon' => 'bi-folder-check',
                 'class' => 'is-documents',
             ],
             [
-                'title' => 'Document Progress',
-                'description' => 'Review submitted and verified records',
-                'question' => 'Can you summarize the progress of my submitted and verified documents?',
-                'icon' => 'bi-clipboard2-check',
-                'class' => 'is-requirements',
+                'id' => 'process-support',
+                'title' => 'Process & Support',
+                'description' => 'Home study, timeline, and official roles',
+                'icon' => 'bi-signpost-2',
+                'class' => 'is-process',
             ],
             [
-                'title' => 'Home Study Status',
-                'description' => 'Understand home-study requirements',
-                'question' => 'What should I know about the home study stage of my application?',
-                'icon' => 'bi-house-check',
-                'class' => 'is-home-study',
-            ],
-            [
-                'title' => 'Recent Case Updates',
-                'description' => 'Explain parent-visible staff updates',
-                'question' => 'Please explain the latest parent-visible updates on my adoption case.',
-                'icon' => 'bi-chat-left-text',
-                'class' => 'is-forum',
-            ],
-            [
-                'title' => 'Expected Timeline',
-                'description' => 'Learn what may happen after this stage',
-                'question' => 'What usually happens after my current stage, and what may affect the timeline?',
-                'icon' => 'bi-clock-history',
-                'class' => 'is-timeline',
-            ],
-            [
-                'title' => 'Privacy and Matching',
-                'description' => 'Understand protected case information',
-                'question' => 'What application and matching information can I access, and what information must remain confidential?',
+                'id' => 'privacy-matching',
+                'title' => 'Privacy & Matching',
+                'description' => 'Protected records and matching decisions',
                 'icon' => 'bi-shield-lock',
                 'class' => 'is-privacy',
+            ],
+        ];
+    }
+
+    private function frequentlyAskedQuestions(): array
+    {
+        return [
+            [
+                'id' => 'create-account',
+                'category' => 'account-access',
+                'title' => 'Create an Account',
+                'description' => 'Use the QR form and verify your email',
+                'question' => 'How do I create a prospective adoptive parent account?',
+                'answer' => 'Scan the prospective-parent application QR code provided by AmoraCare staff, or open the public application form. Complete the form, create a password, accept the Terms and Conditions and Privacy Notice, then enter the verification code sent to your email. Your account is created only after successful email verification and remains Pending until authorized staff review and activate it.',
+                'icon' => 'bi-qr-code-scan',
+                'class' => 'is-status',
+                'match_phrases' => ['register an account', 'sign up for amoracare', 'scan the application qr code'],
+                'match_terms' => [['create', 'account'], ['register', 'account'], ['sign up'], ['signup']],
+            ],
+            [
+                'id' => 'email-verification',
+                'category' => 'account-access',
+                'title' => 'Email Verification',
+                'description' => 'Use or resend your one-time code',
+                'question' => 'How does the email verification code work?',
+                'answer' => 'After you submit the application form or valid login credentials, AmoraCare sends a one-time verification code to your registered email address. Enter the code on the verification page before it expires. If no email arrives, check the address and spam folder, wait for the resend cooldown, then select Resend code. Never share the code with another person.',
+                'icon' => 'bi-envelope-check',
+                'class' => 'is-status',
+                'match_phrases' => ['otp not received', 'verification code not received', 'resend verification code', 'email code'],
+                'match_terms' => [['verification', 'code'], ['email', 'code'], ['otp'], ['resend', 'code']],
+            ],
+            [
+                'id' => 'account-status',
+                'category' => 'account-access',
+                'title' => 'Account Status',
+                'description' => 'Understand Pending, Active, or Inactive',
+                'question' => 'What do the Pending, Active, and Inactive account statuses mean?',
+                'answer' => 'Pending means your verified application is waiting for staff review. Active means staff approved your account and you may sign in. Inactive means the account has not been used for 60 days or was deactivated by authorized staff. Contact AmoraCare staff if you need an inactive account restored.',
+                'icon' => 'bi-signpost-split',
+                'class' => 'is-status',
+                'match_phrases' => ['my account is pending', 'my account is inactive', 'activate my account'],
+                'match_terms' => [['account', 'status'], ['pending', 'account'], ['inactive', 'account'], ['active', 'account']],
+                'ai_priority_phrases' => ['what is my account status', 'why is my account'],
+            ],
+            [
+                'id' => 'required-documents',
+                'category' => 'application-documents',
+                'title' => 'Required Documents',
+                'description' => 'Find your official checklist',
+                'question' => 'Where can I see the documents required for my application?',
+                'answer' => 'After your account is activated, open My Documents to view the requirements assigned to your application and the status of each file. Requirements may vary by case, so use the checklist shown in your account and follow any instructions from your assigned social worker or authorized AmoraCare staff.',
+                'icon' => 'bi-file-earmark-excel',
+                'class' => 'is-documents',
+                'match_phrases' => ['document checklist', 'application requirements', 'documents do i need'],
+                'match_terms' => [['required', 'document'], ['document', 'requirement'], ['document', 'checklist']],
+            ],
+            [
+                'id' => 'replace-document',
+                'category' => 'application-documents',
+                'title' => 'Replace a Document',
+                'description' => 'Upload a corrected or updated file',
+                'question' => 'Can I replace a document after submitting it?',
+                'answer' => 'Open My Documents and select Replace for the requirement you want to update. The replacement becomes the current submission and must be reviewed again. Replacement is locked for requirements marked Not Required, cases approved by RACCO, and finalized, closed, or cancelled cases. Contact authorized AmoraCare staff if a correction is still necessary.',
+                'icon' => 'bi-arrow-repeat',
+                'class' => 'is-requirements',
+                'match_phrases' => ['replace my submitted file', 'change an uploaded document', 'upload a corrected document'],
+                'match_terms' => [['replace', 'document'], ['replace', 'file'], ['change', 'uploaded'], ['correct', 'document']],
+            ],
+            [
+                'id' => 'application-status',
+                'category' => 'application-documents',
+                'title' => 'Application Status',
+                'description' => 'Find progress and parent-visible updates',
+                'question' => 'Where can I check my application status?',
+                'answer' => 'Open My Application or your parent dashboard to see your current parent-visible stage, document progress, timeline, and authorized updates. If a status or instruction is unclear, contact your assigned social worker or AmoraCare staff for confirmation about your specific case.',
+                'icon' => 'bi-clipboard-data',
+                'class' => 'is-documents',
+                'match_phrases' => ['check my application progress', 'track my application', 'where to see application status'],
+                'match_terms' => [['check', 'application', 'status'], ['track', 'application'], ['where', 'application', 'status']],
+                'ai_priority_phrases' => ['what is my application status', 'my current application status', 'what is my current stage', 'explain my application status', 'what should i do next'],
+            ],
+            [
+                'id' => 'home-study',
+                'category' => 'process-support',
+                'title' => 'Home Study',
+                'description' => 'Understand this assessment stage',
+                'question' => 'What is the home study stage?',
+                'answer' => "The home study is an assessment handled by qualified adoption personnel to understand the applicant's readiness, family situation, home environment, and capacity to care for a child. AmoraCare may record its progress, but the assessment and any official findings must come from authorized professionals.",
+                'icon' => 'bi-house-check',
+                'class' => 'is-home-study',
+                'match_phrases' => ['home study report', 'what happens during home study', 'what is home study', 'explain home study'],
+                'match_terms' => [],
+                'ai_priority_phrases' => ['my home study status', 'status of my home study', 'has my home study', 'when is my home study'],
+            ],
+            [
+                'id' => 'process-timeline',
+                'category' => 'process-support',
+                'title' => 'Expected Timeline',
+                'description' => 'Learn why completion times vary',
+                'question' => 'How long does the adoption process take?',
+                'answer' => 'There is no guaranteed completion date. Timing depends on the completeness and verification of documents, required assessments, case circumstances, matching and placement processes, and decisions by the responsible authorities. Check My Application for your current parent-visible stage and contact your social worker for case-specific guidance.',
+                'icon' => 'bi-clock-history',
+                'class' => 'is-timeline',
+                'match_phrases' => ['adoption process timeline', 'how long will adoption take'],
+                'match_terms' => [['how long', 'adoption'], ['adoption', 'timeline']],
+            ],
+            [
+                'id' => 'matching-privacy',
+                'category' => 'privacy-matching',
+                'title' => 'Privacy and Matching',
+                'description' => 'Understand protected case information',
+                'question' => 'Why can I not browse child profiles or matching rankings?',
+                'answer' => 'Child profiles, confidential case notes, and matching rankings contain protected information and are available only to authorized personnel. The matching feature provides recommendations for professional review; prospective parents cannot browse protected child records, and the system does not make a final placement or adoption decision.',
+                'icon' => 'bi-shield-lock',
+                'class' => 'is-privacy',
+                'match_phrases' => ['browse child profiles', 'view matching rankings', 'why are child profiles restricted'],
+                'match_terms' => [['child', 'profile', 'browse'], ['matching', 'ranking'], ['child', 'profile', 'restricted']],
+            ],
+            [
+                'id' => 'record-privacy',
+                'category' => 'privacy-matching',
+                'title' => 'Who Can View My Records?',
+                'description' => 'Understand role-based record access',
+                'question' => 'Who can view my personal information and application records?',
+                'answer' => 'Only authenticated users with the appropriate role and authorized case access may view relevant records. Prospective parents see only their own parent-visible information. Staff and authorized external reviewers receive access according to their assigned responsibilities. Child profiles, donor records, confidential notes, and other applicants’ records are not available through the parent portal.',
+                'icon' => 'bi-person-check',
+                'class' => 'is-privacy',
+                'match_phrases' => ['who can see my records', 'who can access my information', 'is my application private'],
+                'match_terms' => [['who', 'view', 'record'], ['who', 'access', 'information'], ['application', 'private'], ['personal', 'information', 'access']],
+            ],
+            [
+                'id' => 'official-decisions',
+                'category' => 'process-support',
+                'title' => 'Official Decisions',
+                'description' => 'Know what AmoraCare can and cannot decide',
+                'question' => 'Does AmoraCare approve my adoption application?',
+                'answer' => 'No. AmoraCare helps organize applications, documents, parent-visible updates, and staff workflows. It does not replace NACC, RACCO, courts, social workers, or other authorized decision-makers, and it cannot guarantee approval, matching, placement, or an adoption order.',
+                'icon' => 'bi-buildings',
+                'class' => 'is-support',
+                'match_phrases' => ['who approves an adoption', 'final adoption decision', 'does the system approve adoption'],
+                'match_terms' => [['amoracare', 'approve'], ['who', 'approve', 'adoption'], ['system', 'approve']],
             ],
         ];
     }

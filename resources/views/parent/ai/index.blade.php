@@ -181,6 +181,56 @@
             gap: 8px;
         }
 
+        .ai-topic-menu[hidden],
+        .ai-faq-panel[hidden] {
+            display: none !important;
+        }
+
+        .ai-faq-panel-heading {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin: 11px 0 12px;
+            color: #101828;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .ai-faq-panel-heading i {
+            color: var(--ai-primary);
+        }
+
+        .ai-faq-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: var(--ai-primary);
+            font: inherit;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .ai-faq-fallback {
+            margin-top: 13px;
+            padding: 12px;
+            border: 1px dashed #d6c7c0;
+            border-radius: 13px;
+            background: #fffaf7;
+            color: var(--ai-muted);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .ai-faq-fallback strong {
+            display: block;
+            margin-bottom: 2px;
+            color: #66311f;
+        }
+
         .ai-question-chip {
             --chat-button-color: #8b2f18;
             --chat-button-soft: #fff4ef;
@@ -300,6 +350,7 @@
         }
 
         .ai-question-chip:focus-visible,
+        .ai-faq-back:focus-visible,
         .ai-action-btn:focus-visible,
         .ai-followup-chip:focus-visible,
         .ai-send-btn:focus-visible,
@@ -310,6 +361,7 @@
         }
 
         .ai-question-chip:disabled,
+        .ai-faq-back:disabled,
         .ai-action-btn:disabled,
         .ai-followup-chip:disabled,
         .ai-send-btn:disabled,
@@ -1157,28 +1209,78 @@
             <aside class="ai-sidebar" aria-label="AI guidance help and suggested questions">
                 <section class="ai-side-card">
                     <h2 class="ai-side-title">
-                        <i class="bi bi-lightning-charge" aria-hidden="true"></i>
-                        Initial chat requests
+                        <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        Frequently asked questions
                     </h2>
                     <p class="ai-side-description">
-                        Choose a starter based on {{ $hasAdoptionCase ? 'your current application' : 'where you are in the adoption process' }}.
+                        Select a topic, then choose a question for an instant answer.
                     </p>
 
-                    <div class="ai-topic-list">
-                        @foreach($initialChatRequests as $initialRequest)
+                    <div id="faqCategoryMenu" class="ai-topic-menu">
+                        <div class="ai-topic-list">
+                            @foreach($faqCategories as $category)
+                                <button
+                                    type="button"
+                                    class="ai-question-chip {{ $category['class'] }}"
+                                    data-faq-category="{{ $category['id'] }}"
+                                    aria-controls="faq-panel-{{ $category['id'] }}"
+                                    aria-expanded="false"
+                                >
+                                    <i class="bi {{ $category['icon'] }}" aria-hidden="true"></i>
+                                    <span class="ai-question-copy">
+                                        <strong>{{ $category['title'] }}</strong>
+                                        <small>{{ $category['description'] }}</small>
+                                    </span>
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    @foreach($faqCategories as $category)
+                        <div
+                            id="faq-panel-{{ $category['id'] }}"
+                            class="ai-faq-panel"
+                            data-faq-panel="{{ $category['id'] }}"
+                            hidden
+                        >
                             <button
                                 type="button"
-                                class="ai-question-chip {{ $initialRequest['class'] }}"
-                                data-question="{{ $initialRequest['question'] }}"
-                                data-send-immediately="true"
+                                class="ai-faq-back"
+                                data-faq-back
                             >
-                                <i class="bi {{ $initialRequest['icon'] }}" aria-hidden="true"></i>
-                                <span class="ai-question-copy">
-                                    <strong>{{ $initialRequest['title'] }}</strong>
-                                    <small>{{ $initialRequest['description'] }}</small>
-                                </span>
+                                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                                Back to topics
                             </button>
-                        @endforeach
+
+                            <div class="ai-faq-panel-heading" tabindex="-1">
+                                <i class="bi {{ $category['icon'] }}" aria-hidden="true"></i>
+                                {{ $category['title'] }} questions
+                            </div>
+
+                            <div class="ai-topic-list">
+                                @foreach($frequentlyAskedQuestions as $faq)
+                                    @if($faq['category'] === $category['id'])
+                                        <button
+                                            type="button"
+                                            class="ai-question-chip {{ $faq['class'] }}"
+                                            data-faq-id="{{ $faq['id'] }}"
+                                            data-faq-question="{{ $faq['question'] }}"
+                                        >
+                                            <i class="bi {{ $faq['icon'] }}" aria-hidden="true"></i>
+                                            <span class="ai-question-copy">
+                                                <strong>{{ $faq['title'] }}</strong>
+                                                <small>{{ $faq['description'] }}</small>
+                                            </span>
+                                        </button>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+
+                    <div class="ai-faq-fallback">
+                        <strong>Cannot find your question?</strong>
+                        Type it below. AmoraCare checks the FAQs first. If they cannot answer your question, the AI assistant will help.
                     </div>
                 </section>
 
@@ -1316,6 +1418,7 @@
 
     <script>
         const CHAT_URL = @json(route('parent.ai.chat'));
+        const FAQ_URL = @json(route('parent.ai.faq'));
         const CLEAR_URL = @json(route('parent.ai.clear'));
         const CSRF_TOKEN = @json(csrf_token());
         const USER_NAME = @json(auth()->user()?->name ?? 'You');
@@ -1350,6 +1453,9 @@
         const characterCount = document.getElementById("characterCount");
         const messageCount = document.getElementById("messageCount");
         const scrollLatestBtn = document.getElementById("scrollLatestBtn");
+        const faqCategoryMenu = document.getElementById("faqCategoryMenu");
+        const faqCategoryButtons = Array.from(document.querySelectorAll("[data-faq-category]"));
+        const faqPanels = Array.from(document.querySelectorAll("[data-faq-panel]"));
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
         function removeLegacyBrowserHistory() {
@@ -1372,6 +1478,8 @@
                     content: String(item.content || ""),
                     sources: Array.isArray(item.sources) ? item.sources : [],
                     disclaimer: item.disclaimer || null,
+                    origin: item.origin || null,
+                    question: item.question || null,
                     isTyping: false,
                     createdAt: item.createdAt || new Date().toISOString()
                 }));
@@ -1760,10 +1868,19 @@
                     copyButton.dataset.copyIndex = String(index);
                     copyButton.innerHTML = '<i class="bi bi-copy" aria-hidden="true"></i> Copy answer';
                     actionsDiv.appendChild(copyButton);
+                    if (msg.origin === "approved_faq" && msg.question) {
+                        const askAiButton = document.createElement("button");
+                        askAiButton.type = "button";
+                        askAiButton.className = "ai-action-btn";
+                        askAiButton.dataset.faqEscalate = String(index);
+                        askAiButton.textContent = "Need more help? Ask AI";
+                        askAiButton.disabled = isSending;
+                        actionsDiv.appendChild(askAiButton);
+                    }
                     messageDiv.appendChild(actionsDiv);
 
                     if (index === messages.length - 1 && msg.content) {
-                        const followups = getFollowUpSuggestions(msg.content);
+                        const followups = msg.origin === "approved_faq" ? [] : getFollowUpSuggestions(msg.content);
                         const followupSection = document.createElement("div");
                         followupSection.className = "ai-followups";
 
@@ -1773,6 +1890,12 @@
 
                         const list = document.createElement("div");
                         list.className = "ai-followup-list";
+                        const topicsButton = document.createElement("button");
+                        topicsButton.type = "button";
+                        topicsButton.className = "ai-followup-chip";
+                        topicsButton.dataset.faqBack = "";
+                        topicsButton.textContent = "Browse FAQ topics";
+                        list.appendChild(topicsButton);
 
                         followups.forEach(question => {
                             const button = document.createElement("button");
@@ -1827,6 +1950,35 @@
             userInput.focus();
         }
 
+        function showFaqCategory(categoryId) {
+            const selectedPanel = faqPanels.find(panel => panel.dataset.faqPanel === categoryId);
+
+            if (!selectedPanel || !faqCategoryMenu) return;
+
+            faqCategoryMenu.hidden = true;
+
+            faqPanels.forEach(panel => {
+                panel.hidden = panel !== selectedPanel;
+            });
+
+            faqCategoryButtons.forEach(button => {
+                button.setAttribute("aria-expanded", String(button.dataset.faqCategory === categoryId));
+            });
+
+            selectedPanel.querySelector(".ai-faq-panel-heading")?.focus();
+        }
+
+        function showFaqCategories() {
+            if (!faqCategoryMenu) return;
+
+            faqCategoryMenu.hidden = false;
+            faqPanels.forEach(panel => {
+                panel.hidden = true;
+            });
+            faqCategoryButtons.forEach(button => button.setAttribute("aria-expanded", "false"));
+            faqCategoryButtons[0]?.focus();
+        }
+
         async function copyToClipboard(text) {
             try {
                 if (navigator.clipboard && window.isSecureContext) {
@@ -1854,7 +2006,7 @@
             clearBtn.disabled = loading;
             userInput.disabled = loading;
 
-            document.querySelectorAll(".ai-question-chip, .ai-followup-chip").forEach(button => {
+            document.querySelectorAll(".ai-question-chip, .ai-followup-chip, .ai-faq-back, [data-faq-escalate]").forEach(button => {
                 button.disabled = loading;
             });
 
@@ -1872,7 +2024,7 @@
             statusText.className = "ai-status";
             statusText.innerHTML = `
                 <span class="ai-typing">
-                    AmoraCare is preparing a response
+                    AmoraCare is finding the best answer
                     <span class="ai-dots" aria-hidden="true">
                         <span></span><span></span><span></span>
                     </span>
@@ -1897,7 +2049,7 @@
             return new Promise(resolve => window.setTimeout(resolve, ms));
         }
 
-        async function typeAssistantReply(fullText, sources = [], disclaimer = null) {
+        async function typeAssistantReply(fullText, sources = [], disclaimer = null, metadata = {}) {
             const finalText = fullText || "Sorry, I could not generate a clear answer right now.";
             const messageIndex = messages.length;
 
@@ -1912,7 +2064,7 @@
 
             renderChat();
 
-            if (reduceMotion || finalText.length > 1800) {
+            if (metadata.origin === "approved_faq" || reduceMotion || finalText.length > 1800) {
                 messages[messageIndex].content = finalText;
             } else {
                 const pieces = finalText.match(/\S+\s*/g) || [finalText];
@@ -1929,6 +2081,8 @@
                 content: finalText,
                 sources: Array.isArray(sources) ? sources : [],
                 disclaimer: disclaimer || null,
+                origin: metadata.origin || null,
+                question: metadata.question || null,
                 isTyping: false,
                 createdAt: new Date().toISOString()
             };
@@ -1936,7 +2090,7 @@
             renderChat();
         }
 
-        async function sendMessage() {
+        async function sendMessage(options = {}) {
             const text = userInput.value.trim();
 
             if (!text || isSending) return;
@@ -1973,7 +2127,7 @@
                         "X-CSRF-TOKEN": CSRF_TOKEN,
                         "Accept": "application/json"
                     },
-                    body: JSON.stringify({ message: text }),
+                    body: JSON.stringify({ message: text, use_ai: options.useAi === true }),
                     signal: controller.signal
                 });
 
@@ -1993,12 +2147,17 @@
                     );
                 }
 
-                showStatus();
+                if (data.answer_type === "approved_faq") {
+                    showStatus("Answer from AmoraCare FAQs.", "success");
+                } else {
+                    showStatus("AI guidance answer.");
+                }
 
                 await typeAssistantReply(
                     data.reply || "No response was received.",
                     data.sources || [],
-                    data.disclaimer || null
+                    data.disclaimer || null,
+                    { origin: data.answer_type, question: text }
                 );
             } catch (error) {
                 const timedOut = error?.name === "AbortError";
@@ -2020,6 +2179,73 @@
                 setLoadingState(false);
                 updateComposerState();
                 userInput.focus();
+            }
+        }
+
+        async function showFaqAnswer(faqId, question) {
+            if (!faqId || isSending) return;
+
+            messages.push({
+                role: "user",
+                content: question || "Frequently asked question",
+                sources: [],
+                disclaimer: null,
+                isTyping: false,
+                createdAt: new Date().toISOString()
+            });
+
+            renderChat();
+            setLoadingState(true);
+            showStatus("Opening your FAQ answer...");
+            chatBox.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+
+            try {
+                const response = await fetch(FAQ_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": CSRF_TOKEN,
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({ faq_id: faqId }),
+                    signal: controller.signal
+                });
+
+                let data = {};
+
+                try {
+                    data = await response.json();
+                } catch (error) {
+                    data = {};
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.message || "The FAQ answer could not be loaded.");
+                }
+
+                showStatus("Answer from AmoraCare FAQs.", "success");
+
+                await typeAssistantReply(
+                    data.reply || "No FAQ answer was received.",
+                    data.sources || [],
+                    data.disclaimer || null,
+                    { origin: data.answer_type, question: data.question || question }
+                );
+            } catch (error) {
+                showStatus(error.message || "The FAQ answer could not be loaded.", "error");
+
+                await typeAssistantReply(
+                    "This FAQ answer is temporarily unavailable. Please try again or contact AmoraCare staff.",
+                    [],
+                    null
+                );
+            } finally {
+                window.clearTimeout(timeoutId);
+                setLoadingState(false);
+                updateComposerState();
             }
         }
 
@@ -2045,7 +2271,7 @@
 
                 messages = [{
                     ...defaultMessage,
-                    content: "Your conversation has been cleared. Choose a different initial request, or type your own adoption-related question.",
+                    content: "Your conversation has been cleared. Choose an FAQ topic or type your adoption-related question.",
                     createdAt: new Date().toISOString()
                 }];
 
@@ -2057,6 +2283,40 @@
         }
 
         document.addEventListener("click", event => {
+            const escalationButton = event.target.closest("[data-faq-escalate]");
+            if (escalationButton) {
+                if (isSending) return;
+                const question = messages[Number(escalationButton.dataset.faqEscalate)]?.question;
+                if (question) {
+                    setQuestion(question);
+                    sendMessage({ useAi: true });
+                }
+                return;
+            }
+
+            const categoryButton = event.target.closest("[data-faq-category]");
+
+            if (categoryButton) {
+                showFaqCategory(categoryButton.dataset.faqCategory);
+                return;
+            }
+
+            if (event.target.closest("[data-faq-back]")) {
+                showFaqCategories();
+                return;
+            }
+
+            const faqButton = event.target.closest("[data-faq-id]");
+
+            if (faqButton) {
+                showFaqAnswer(
+                    faqButton.dataset.faqId,
+                    faqButton.dataset.faqQuestion
+                );
+
+                return;
+            }
+
             const questionButton = event.target.closest("[data-question]");
 
             if (questionButton) {

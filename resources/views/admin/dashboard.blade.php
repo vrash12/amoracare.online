@@ -37,6 +37,7 @@
 
         <div class="quick-actions">
             <a href="{{ route('admin.users.index') }}" class="btn">Manage Users</a>
+            <a href="{{ route('admin.parents.application-qr') }}" class="btn secondary">Share Parent Application QR</a>
             <a href="{{ route('admin.adoption-cases.create') }}" class="btn secondary">Create Adoption Case</a>
             <a href="{{ route('admin.donations.create') }}" class="btn secondary">Record Donation</a>
             <a href="{{ route('admin.reports.index') }}" class="btn light">Generate Report</a>

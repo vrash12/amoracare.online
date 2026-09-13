@@ -177,6 +177,130 @@ class ParentAiGuidancePrivacyTest extends TestCase
         );
     }
 
+    public function test_approved_faq_answer_does_not_call_the_external_ai_service(): void
+    {
+        $parent = $this->createParent('faq.parent@example.com');
+
+        Http::fake();
+
+        $response = $this->actingAs($parent)
+            ->postJson(route('parent.ai.faq'), [
+                'faq_id' => 'create-account',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('answer_type', 'approved_faq')
+            ->assertJsonPath('question', 'How do I create a prospective adoptive parent account?')
+            ->assertJsonPath('sources.0.title', 'AmoraCare FAQ');
+
+        Http::assertNothingSent();
+
+        $history = $this->app['session.store']->get($this->historyKey($parent));
+
+        $this->assertCount(2, $history);
+        $this->assertSame('user', $history[0]['role']);
+        $this->assertSame('assistant', $history[1]['role']);
+        $this->assertStringContainsString('verification code', $history[1]['content']);
+    }
+
+    public function test_typed_known_question_uses_an_approved_faq_before_ai(): void
+    {
+        $parent = $this->createParent('typed.faq@example.com');
+
+        config([
+            'services.legal_guidance.url' => null,
+            'services.legal_guidance.api_key' => null,
+        ]);
+        Http::fake();
+
+        $response = $this->actingAs($parent)
+            ->postJson(route('parent.ai.chat'), [
+                'message' => 'Can I replace my submitted document with a corrected file?',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('answer_type', 'approved_faq')
+            ->assertJsonPath('matched_faq_id', 'replace-document')
+            ->assertJsonPath('question', 'Can I replace my submitted document with a corrected file?');
+
+        Http::assertNothingSent();
+
+        $history = $this->app['session.store']->get($this->historyKey($parent));
+
+        $this->assertSame('Can I replace my submitted document with a corrected file?', $history[0]['content']);
+        $this->assertStringContainsString('select Replace', $history[1]['content']);
+    }
+
+    public function test_personal_application_status_question_is_deferred_to_context_aware_ai(): void
+    {
+        $parent = $this->createParent('personal.status@example.com');
+
+        Http::fake([
+            'https://legal-guidance.test/api/ask' => Http::response([
+                'answer' => 'This answer uses the authenticated parent context.',
+                'sources' => [],
+                'disclaimer' => 'Informational guidance only.',
+            ]),
+        ]);
+
+        $this->actingAs($parent)
+            ->postJson(route('parent.ai.faq'), [
+                'faq_id' => 'required-documents',
+            ])
+            ->assertOk()
+            ->assertJsonPath('answer_type', 'approved_faq');
+
+        $response = $this->actingAs($parent)
+            ->postJson(route('parent.ai.chat'), [
+                'message' => 'What is my application status?',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('answer_type', 'ai_guidance')
+            ->assertJsonPath('reply', 'This answer uses the authenticated parent context.');
+
+        Http::assertSent(fn (ClientRequest $request) => $request->url() === 'https://legal-guidance.test/api/ask'
+            && $request['question'] === 'What is my application status?'
+            && $request['conversation_history'] === []
+        );
+        Http::assertSentCount(1);
+    }
+
+    public function test_unknown_faq_is_rejected_without_calling_the_external_ai_service(): void
+    {
+        $parent = $this->createParent('unknown.faq@example.com');
+
+        Http::fake();
+
+        $this->actingAs($parent)
+            ->postJson(route('parent.ai.faq'), [
+                'faq_id' => 'not-an-approved-faq',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The selected frequently asked question is unavailable.');
+
+        Http::assertNothingSent();
+        $this->assertNull($this->app['session.store']->get($this->historyKey($parent)));
+    }
+
+    public function test_parent_can_request_ai_when_a_predefined_answer_does_not_help(): void
+    {
+        $parent = $this->createParent('faq.followup@example.com');
+        Http::fake([
+            'https://legal-guidance.test/api/ask' => Http::response([
+                'answer' => 'Additional help for this question.',
+            ]),
+        ]);
+
+        $this->actingAs($parent)->postJson(route('parent.ai.chat'), [
+            'message' => 'Can I replace my document?',
+            'use_ai' => true,
+        ])->assertOk()->assertJsonPath('answer_type', 'ai_guidance');
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (ClientRequest $request) => $request['question'] === 'Can I replace my document?');
+    }
+
     public function test_clear_removes_only_the_authenticated_parents_history(): void
     {
         $firstParent = $this->createParent('first.parent@example.com');

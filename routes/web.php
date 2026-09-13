@@ -186,6 +186,9 @@ Route::middleware(['auth:prospective_parent,web', 'role:prospective_parent'])
         Route::post('/ai-legal-guidance/chat', [ParentAiGuidanceController::class, 'chat'])
             ->name('ai.chat');
 
+        Route::post('/ai-legal-guidance/faq', [ParentAiGuidanceController::class, 'faq'])
+            ->name('ai.faq');
+
         Route::post('/ai-legal-guidance/clear', [ParentAiGuidanceController::class, 'clear'])
             ->name('ai.clear');
     });
