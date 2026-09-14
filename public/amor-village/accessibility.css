@@ -1,0 +1,190 @@
+/* Optional reading controls for the AMOR public landing page. */
+.amor-a11y-trigger,
+.amor-a11y-panel,
+.amor-a11y-panel * { box-sizing: border-box; }
+.amor-a11y-trigger[hidden],
+.amor-a11y-panel [hidden],
+#amor-reading-guide[hidden] { display: none !important; }
+.amor-a11y-trigger {
+	position: fixed;
+	right: max(20px, env(safe-area-inset-right));
+	bottom: max(20px, env(safe-area-inset-bottom));
+	z-index: 99990;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 54px;
+	padding: 12px 19px;
+	border: 2px solid #fff8ee;
+	border-radius: 999px;
+	background: #075e59;
+	color: #fff8ee;
+	font-family: inherit;
+	font-size: 16px;
+	font-weight: 800;
+	line-height: 1.3;
+	letter-spacing: 0;
+	text-transform: none;
+	box-shadow: 0 5px 20px rgb(32 51 47 / 20%);
+	cursor: pointer;
+}
+.amor-a11y-trigger:hover { background: #20332f; color: #fff8ee; }
+.amor-a11y-trigger svg { flex: 0 0 25px; }
+.amor-a11y-trigger:focus-visible,
+.amor-a11y-panel :focus-visible {
+	outline: 3px solid #20332f;
+	outline-offset: 4px;
+	box-shadow: 0 0 0 4px #f4c95d;
+}
+.amor-a11y-panel {
+	position: fixed;
+	inset: auto 20px 86px auto;
+	z-index: 99999;
+	width: 460px;
+	max-width: calc(100vw - 24px);
+	max-height: calc(100vh - 110px);
+	max-height: calc(100dvh - 110px);
+	margin: 0;
+	padding: 0;
+	border: 2px solid #075e59;
+	border-radius: 22px;
+	background: #fff8ee;
+	color: #20332f;
+	font-family: inherit;
+	font-size: 16px;
+	line-height: 1.5;
+	letter-spacing: normal;
+	text-align: left;
+	overflow: auto;
+	overscroll-behavior: contain;
+	box-shadow: 0 16px 60px rgb(32 51 47 / 25%);
+}
+.amor-a11y-panel:not([open]) { display: none; }
+.amor-a11y-panel::backdrop { background: rgb(8 32 28 / 48%); }
+.amor-a11y-panel-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 20px 18px 12px 22px;
+	background: #fff8ee;
+}
+.amor-a11y-panel h2 {
+	margin: 4px 0 0;
+	font-size: 24px;
+	font-weight: 800;
+	line-height: 1.2;
+	letter-spacing: -0.4px;
+	color: #075e59;
+}
+.amor-a11y-panel h3 { margin: 0; font-size: 17px; line-height: 1.4; font-weight: 800; color: #20332f; }
+.amor-a11y-panel p { margin: 0 0 18px; font-size: 16px; line-height: 1.55; color: #20332f; }
+.amor-a11y-panel-content { padding: 0 22px 22px; }
+.amor-a11y-panel button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 48px;
+	max-width: 100%;
+	margin: 0;
+	padding: 10px 12px;
+	border: 2px solid #075e59;
+	border-radius: 12px;
+	background: #fff8ee;
+	color: #075e59;
+	font-family: inherit;
+	font-size: 16px;
+	font-weight: 800;
+	line-height: 1.4;
+	letter-spacing: 0;
+	text-transform: none;
+	white-space: normal;
+	word-break: normal;
+	cursor: pointer;
+}
+.amor-a11y-panel button:hover { background: #e5f3ec; color: #075e59; }
+.amor-a11y-panel button:disabled { border-color: #75847b; color: #596960; background: #f3efe6; cursor: default; }
+.amor-a11y-panel .amor-a11y-close { flex: 0 0 48px; width: 48px; height: 48px; padding: 10px; border-color: transparent; border-radius: 50%; }
+.amor-a11y-text-controls { padding: 16px; margin: 0 0 16px; border: 1px solid #80958d; border-radius: 15px; }
+.amor-a11y-text-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+#amor-a11y-text-value { color: #075e59; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 18px; }
+.amor-a11y-text-actions { display: grid; grid-template-columns: 1.25fr 1fr; gap: 8px; }
+.amor-a11y-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.amor-a11y-panel .amor-a11y-option { flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 13px; text-align: left; }
+.amor-a11y-panel .amor-a11y-option[aria-pressed="true"] { background: #075e59; color: #fff8ee; }
+.amor-a11y-state { min-width: 36px; padding: 1px 8px; border: 1px solid currentColor; border-radius: 50px; font-size: 13px; font-weight: 800; line-height: 1.5; text-align: center; }
+.amor-a11y-panel .amor-a11y-hint { font-size: 14px; line-height: 1.5; }
+.amor-a11y-panel-footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.amor-a11y-panel-footer a { align-self: flex-start; padding: 8px 0; color: #075e59; font-size: 16px; font-weight: 800; line-height: 1.5; text-decoration: underline; text-underline-offset: 3px; }
+.amor-a11y-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+html.amor-a11y-modal-open { overflow: hidden !important; }
+
+/* Large text can wrap inside the public page's cards and narrow layouts. */
+html.amor-a11y-text-large body.amor-site :where(h1, h2, h3, p, figcaption, li, summary, a) { overflow-wrap: anywhere; }
+html.amor-a11y-text-large body.amor-site :where(.amor-cards, .amor-life-grid, .amor-values-grid, .amor-portal-grid, .amor-footer-main) > * { min-width: 0; }
+html.amor-a11y-text-large body.amor-site :where(.amor-button, .amor-text-link, .amor-contact-cta) { max-width: 100%; white-space: normal; }
+@media (min-width: 1101px) {
+	html.amor-a11y-text-large body.amor-site :where(.amor-cards, .amor-life-grid, .amor-portal-grid, .amor-footer-main) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }
+}
+
+/* Page preferences avoid changing the controls used to reverse them. */
+html.amor-a11y-line-spacing body.amor-site :where(p, li, dd, dt, blockquote, figcaption, label, legend, td, th, h1, h2, h3, h4, h5, h6):not(.amor-a11y-panel *) { line-height: 1.8 !important; }
+html.amor-a11y-letter-spacing body.amor-site :where(p, li, dd, dt, blockquote, figcaption, label, legend, td, th, h1, h2, h3, h4, h5, h6, a, input, textarea, select):not(.amor-a11y-panel *):not(.amor-a11y-trigger *) { letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }
+html.amor-a11y-underline body.amor-site a { text-decoration: underline !important; text-decoration-thickness: max(1px, 0.09em) !important; text-underline-offset: 0.18em !important; }
+
+/* Solid 21:1 black/white surfaces. Photographs retain their original colors. */
+html.amor-a11y-contrast body.amor-site,
+html.amor-a11y-contrast body.amor-site *:not(img):not(video):not(iframe):not(canvas):not(svg):not(svg *) {
+	background-color: #fff !important;
+	background-image: none !important;
+	color: #000 !important;
+	border-color: #000 !important;
+	text-shadow: none !important;
+	box-shadow: none !important;
+	-webkit-text-fill-color: currentColor !important;
+}
+html.amor-a11y-contrast body.amor-site *::before,
+html.amor-a11y-contrast body.amor-site *::after { background-image: none !important; text-shadow: none !important; }
+html.amor-a11y-contrast body.amor-site .amor-wave::before,
+html.amor-a11y-contrast body.amor-site .amor-wave::after { background-color: #fff !important; }
+html.amor-a11y-contrast body.amor-site .amor-hero h1 em { text-decoration-color: currentColor !important; }
+html.amor-a11y-contrast body.amor-site a { color: #000 !important; text-decoration: underline !important; text-underline-offset: 0.18em !important; }
+html.amor-a11y-contrast body.amor-site :is(button, input[type="submit"], input[type="button"], .amor-button) { background-color: #000 !important; color: #fff !important; border: 2px solid #000 !important; }
+html.amor-a11y-contrast body.amor-site :is(button, .amor-button) * { background-color: transparent !important; color: #fff !important; border-color: currentColor !important; }
+html.amor-a11y-contrast .amor-a11y-panel button[aria-pressed="true"] { background-color: #fff !important; color: #000 !important; outline: 2px solid #000; outline-offset: 2px; }
+html.amor-a11y-contrast .amor-a11y-panel button[aria-pressed="true"] * { color: #000 !important; }
+html.amor-a11y-contrast body.amor-site button:disabled { background-color: #fff !important; color: #000 !important; border-style: dashed !important; }
+html.amor-a11y-contrast body.amor-site svg { color: inherit !important; }
+html.amor-a11y-contrast body.amor-site svg [fill]:not([fill="none"]) { fill: currentColor !important; }
+html.amor-a11y-contrast body.amor-site svg [stroke]:not([stroke="none"]) { stroke: currentColor !important; }
+html.amor-a11y-contrast body.amor-site :focus-visible { outline: 3px solid #000 !important; outline-offset: 4px !important; box-shadow: 0 0 0 4px #fff !important; }
+html.amor-a11y-contrast body.amor-site input::placeholder,
+html.amor-a11y-contrast body.amor-site textarea::placeholder { color: #000 !important; opacity: 1 !important; }
+
+html.amor-a11y-reduce-motion { scroll-behavior: auto !important; }
+html.amor-a11y-reduce-motion *,
+html.amor-a11y-reduce-motion *::before,
+html.amor-a11y-reduce-motion *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+@media (prefers-reduced-motion: reduce) {
+	html { scroll-behavior: auto !important; }
+	*, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+#amor-reading-guide { position: fixed; inset: 50vh 0 auto; z-index: 99980; height: 3px; background: #075e59; border-top: 1px solid #fff8ee; box-shadow: 0 1px 0 #fff8ee; pointer-events: none; }
+html.amor-a11y-contrast #amor-reading-guide { background: #000 !important; border-top: 1px solid #fff !important; }
+@media (max-width: 380px) {
+	.amor-a11y-trigger { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); padding: 12px 15px; }
+	.amor-a11y-panel { right: 12px; bottom: 78px; max-height: calc(100vh - 94px); max-height: calc(100dvh - 94px); border-radius: 17px; }
+	.amor-a11y-panel-header { padding: 16px 12px 12px 16px; }
+	.amor-a11y-panel-content { padding: 0 16px 18px; }
+	.amor-a11y-panel h2 { font-size: 22px; }
+	.amor-a11y-text-controls { padding: 12px; }
+	.amor-a11y-text-actions, .amor-a11y-options { grid-template-columns: 1fr; }
+	.amor-a11y-panel .amor-a11y-option { flex-direction: row; align-items: center; }
+}
+@media (forced-colors: active) {
+	.amor-a11y-trigger, .amor-a11y-panel, .amor-a11y-panel button { border: 2px solid ButtonText; }
+	.amor-a11y-option[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 1px; }
+	#amor-reading-guide { background: Highlight; forced-color-adjust: none; }
+}
