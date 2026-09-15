@@ -32,6 +32,9 @@
             : collect($availableAuthGuards)
                 ->first(fn (string $guard): bool => auth($guard)->check());
     $hasAuthenticatedPortal = is_string($activeLandingGuard);
+    $hasParentApplication = \Illuminate\Support\Facades\Route::has('parent.application.create');
+    $hasTerms = \Illuminate\Support\Facades\Route::has('legal.terms');
+    $hasPrivacy = \Illuminate\Support\Facades\Route::has('legal.privacy');
 @endphp
 <body class="amor-site" id="home">
     <a class="amor-skip" href="#main-content">Skip to content</a>
@@ -132,7 +135,13 @@
             <div class="amor-shell">
                 <div class="amor-section-head"><div><p class="amor-kicker">Connected through AmoraCare</p><h2 id="portal-title">The next step,<br>with guidance.</h2></div><p class="amor-section-lead">A secure space for prospective parents, care teams and authorized reviewers to work together.</p></div>
                 <div class="amor-portal-grid">
-                    <article class="amor-portal-card"><span class="amor-card-label">For prospective parents</span><h3>Begin with an application.</h3><p>Submit your prospective adoptive parent application through AmoraCare to start the review process.</p><a class="amor-text-link" href="{{ route('parent.application.create') }}">Start an application <span aria-hidden="true">→</span></a></article>
+                    <article class="amor-portal-card"><span class="amor-card-label">For prospective parents</span>
+                        @if($hasParentApplication)
+                            <h3>Begin with an application.</h3><p>Submit your prospective adoptive parent application through AmoraCare to start the review process.</p><a class="amor-text-link" href="{{ route('parent.application.create') }}">Start an application <span aria-hidden="true">→</span></a>
+                        @else
+                            <h3>Begin with a conversation.</h3><p>Contact the team to ask about the application process and next steps.</p><a class="amor-text-link" href="#contact">Ask about applying <span aria-hidden="true">→</span></a>
+                        @endif
+                    </article>
                     <article class="amor-portal-card"><span class="amor-card-label">Your secure portal</span><h3>{{ $hasAuthenticatedPortal ? 'Welcome back.' : 'Keep everything connected.' }}</h3><p>Access your authorized workspace for application progress, documents and case collaboration.</p>
                         @if($hasAuthenticatedPortal)
                             <a class="amor-text-link" href="{{ route('dashboard') }}">Open Dashboard <span aria-hidden="true">→</span></a>
@@ -160,10 +169,19 @@
             <div class="amor-footer-main">
                 <div class="amor-footer-brand"><a class="amor-brand" href="{{ route('home') }}" aria-label="AMOR Village home">@include('partials.amor-brand')</a><p>A place to belong.<br>A chance to thrive.</p><small>DSWD Field Office III<br>Anao, Tarlac, Philippines</small></div>
                 <div><h2>Explore AMOR</h2><a href="#about">About AMOR</a><a href="#care">Our Care</a><a href="#life">Life at AMOR</a></div>
-                <div><h2>Be part of the story</h2><a href="#get-involved">Get Involved</a><a href="{{ route('parent.application.create') }}">Parent Application</a><a href="{{ route($hasAuthenticatedPortal ? 'dashboard' : 'login') }}">{{ $hasAuthenticatedPortal ? 'Open Dashboard' : 'AmoraCare Login' }}</a></div>
+                <div><h2>Be part of the story</h2><a href="#get-involved">Get Involved</a><a href="{{ $hasParentApplication ? route('parent.application.create') : '#contact' }}">{{ $hasParentApplication ? 'Parent Application' : 'Application inquiries' }}</a><a href="{{ route($hasAuthenticatedPortal ? 'dashboard' : 'login') }}">{{ $hasAuthenticatedPortal ? 'Open Dashboard' : 'AmoraCare Login' }}</a></div>
                 <div><h2>Let’s connect</h2><a href="mailto:amorv.fo3@dswd.gov.ph">amorv.fo3@dswd.gov.ph</a><p>Barangay San Francisco East<br>Anao, Tarlac, Philippines</p><a class="amor-official" href="https://fo3.dswd.gov.ph/dir/">Official DSWD directory <span aria-hidden="true">↗</span></a></div>
             </div>
-            <div class="amor-footer-bottom"><span>&copy; {{ date('Y') }} AMOR Village · AmoraCare</span>@include('partials.legal-links')<a href="#accessibility">Accessibility</a></div>
+            <div class="amor-footer-bottom"><span>&copy; {{ date('Y') }} AMOR Village · AmoraCare</span>
+                @if($hasTerms || $hasPrivacy)
+                    <nav class="legal-links" aria-label="Legal information">
+                        @if($hasTerms)<a href="{{ route('legal.terms') }}">Terms and Conditions</a>@endif
+                        @if($hasTerms && $hasPrivacy)<span aria-hidden="true">&bull;</span>@endif
+                        @if($hasPrivacy)<a href="{{ route('legal.privacy') }}">Privacy Notice</a>@endif
+                    </nav>
+                @endif
+                <a href="#accessibility">Accessibility</a>
+            </div>
             <details class="amor-accessibility-statement" id="accessibility"><summary>Accessibility on this website</summary><p>Use the Accessibility button to adjust text size, spacing, contrast, link underlines, motion and a reading guide. Preferences are saved in this browser when storage is available. You can also use your browser’s zoom and navigate with a keyboard. Contact <a href="mailto:amorv.fo3@dswd.gov.ph">amorv.fo3@dswd.gov.ph</a> to share an access difficulty with the center.</p></details>
         </div>
     </footer>

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use DOMDocument;
 use DOMXPath;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -79,6 +80,48 @@ class WelcomePageTest extends TestCase
             'signed-out portal' => ['external_reviewer'],
             'malformed preference' => [['admin']],
         ];
+    }
+
+    public function test_older_deployments_without_optional_routes_can_render_the_homepage(): void
+    {
+        $this->useLegacyRoutes();
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Ask about applying')
+            ->assertSee('Application inquiries')
+            ->assertSee('href="'.route('login').'"', false)
+            ->assertDontSee('Start an application')
+            ->assertDontSee('Legal information');
+    }
+
+    public function test_legacy_web_authentication_works_without_role_guard_configuration(): void
+    {
+        $this->useLegacyRoutes();
+        config(['auth.role_guards' => []]);
+        $this->actingAs($this->portalUser(), 'web');
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Open Dashboard')
+            ->assertSee('action="'.route('logout').'"', false)
+            ->assertSee('name="guard" value="web"', false)
+            ->assertDontSee('Secure Login');
+    }
+
+    private function useLegacyRoutes(): void
+    {
+        $routes = new RouteCollection;
+
+        foreach (app('router')->getRoutes() as $route) {
+            if (! in_array($route->getName(), ['parent.application.create', 'legal.terms', 'legal.privacy'], true)) {
+                $routes->add($route);
+            }
+        }
+
+        $routes->refreshNameLookups();
+        app('router')->setRoutes($routes);
+        app('url')->setRoutes($routes);
     }
 
     private function portalUser(): User
