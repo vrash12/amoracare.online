@@ -12,10 +12,13 @@ class ParentAiGuidanceInitialRequestsTest extends TestCase
     {
         $faqs = $this->frequentlyAskedQuestions();
 
-        $this->assertCount(11, $faqs);
+        $this->assertCount(14, $faqs);
         $this->assertContains('create-account', array_column($faqs, 'id'));
         $this->assertContains('replace-document', array_column($faqs, 'id'));
         $this->assertContains('matching-privacy', array_column($faqs, 'id'));
+        $this->assertContains('domestic-requirements', array_column($faqs, 'id'));
+        $this->assertContains('rejected-document', array_column($faqs, 'id'));
+        $this->assertContains('more-help', array_column($faqs, 'id'));
     }
 
     public function test_each_approved_faq_has_display_and_answer_fields(): void

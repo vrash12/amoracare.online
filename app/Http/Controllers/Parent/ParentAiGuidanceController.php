@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class ParentAiGuidanceController extends Controller
@@ -66,6 +67,12 @@ class ParentAiGuidanceController extends Controller
 
     public function chat(Request $request): JsonResponse
     {
+        // Older installations already expose /chat but may cache routes without
+        // /faq. Serve button selections here too, without contacting AI.
+        if ($request->has('faq_id')) {
+            return $this->faq($request);
+        }
+
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:2000'],
             'use_ai' => ['sometimes', 'boolean'],
@@ -80,11 +87,10 @@ class ParentAiGuidanceController extends Controller
 
         $legalGuidanceUrl = config('services.legal_guidance.url');
 
-        if (! $legalGuidanceUrl) {
-            return response()->json([
-                'message' => 'The AI legal guidance URL is not configured.',
-                'details' => 'Please set LEGAL_GUIDANCE_URL in your .env file.',
-            ], 500);
+        $legalGuidanceApiKey = config('services.legal_guidance.api_key');
+
+        if (! $legalGuidanceUrl || ! $legalGuidanceApiKey) {
+            return $this->aiUnavailable('missing_configuration');
         }
 
         $user = Auth::user()->loadMissing([
@@ -119,16 +125,7 @@ class ParentAiGuidanceController extends Controller
         }
 
         try {
-            $legalGuidanceApiKey = config('services.legal_guidance.api_key');
-
-            if (! $legalGuidanceApiKey) {
-                return response()->json([
-                    'message' => 'The AI legal guidance API key is not configured.',
-                    'details' => 'Please set LEGAL_GUIDANCE_INTERNAL_API_KEY in the Laravel .env file.',
-                ], 500);
-            }
-
-            $response = Http::timeout(180)
+            $response = Http::timeout(90)
                 ->connectTimeout(10)
                 ->acceptJson()
                 ->asJson()
@@ -142,19 +139,13 @@ class ParentAiGuidanceController extends Controller
                 ]);
 
             if ($response->failed()) {
-                return response()->json([
-                    'message' => 'The AI legal guidance service could not process the request.',
-                    'details' => $response->json('message')
-                        ?? $response->json('error')
-                        ?? $response->body(),
-
-                    // This helps you debug locally.
-                    // It will not show in production.
-                    'sent_parent_context' => app()->environment('local') ? $parentContext : null,
-                ], 500);
+                return $this->aiUnavailable('upstream_failure', $response->status());
             }
 
-            $aiReply = $response->json('answer') ?? 'No response received.';
+            $aiReply = $response->json('answer');
+            if (! is_string($aiReply) || trim($aiReply) === '') {
+                return $this->aiUnavailable('invalid_response', $response->status());
+            }
             $sources = $response->json('sources') ?? [];
             $disclaimer = $response->json('disclaimer');
 
@@ -181,15 +172,22 @@ class ParentAiGuidanceController extends Controller
                 'answer_type' => 'ai_guidance',
             ]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'message' => 'Unable to connect to the AI legal guidance service.',
-                'details' => $e->getMessage(),
-
-                // This helps you debug locally.
-                // It will not show in production.
-                'sent_parent_context' => app()->environment('local') ? $parentContext : null,
-            ], 500);
+            return $this->aiUnavailable('connection_or_response_error');
         }
+    }
+
+    private function aiUnavailable(string $reason, ?int $status = null): JsonResponse
+    {
+        // Log operational metadata only, never keys, questions or parent records.
+        Log::warning('Parent AI guidance unavailable', [
+            'reason' => $reason,
+            'upstream_status' => $status,
+        ]);
+
+        return response()->json([
+            'code' => 'ai_unavailable',
+            'message' => 'AI guidance is temporarily unavailable. You can still click the FAQ questions for saved answers without AI. For help with your specific application, contact AmoraCare staff or your assigned social worker.',
+        ], 503);
     }
 
     public function clear(): JsonResponse
@@ -216,7 +214,7 @@ class ParentAiGuidanceController extends Controller
             $history = [];
         }
 
-        $sources = [[
+        $sources = $faq['sources'] ?? [[
             'title' => 'AmoraCare FAQ',
             'source' => 'AmoraCare FAQ',
         ]];
@@ -255,6 +253,17 @@ class ParentAiGuidanceController extends Controller
 
         if ($normalizedMessage === '') {
             return null;
+        }
+
+        // A configured menu question is safe to answer verbatim, including
+        // general FAQs about rejected documents or inactive accounts. Keep the
+        // broader routing below conservative for case-specific follow-ups.
+        foreach ($this->frequentlyAskedQuestions() as $faq) {
+            foreach (array_merge([$faq['question']], $faq['exact_questions'] ?? []) as $question) {
+                if ($normalizedMessage === $this->normalizeFaqText($question)) {
+                    return $faq;
+                }
+            }
         }
 
         $globalAiPriorityPhrases = [
@@ -404,8 +413,8 @@ class ParentAiGuidanceController extends Controller
                 'category' => 'account-access',
                 'title' => 'Email Verification',
                 'description' => 'Use or resend your one-time code',
-                'question' => 'How does the email verification code work?',
-                'answer' => 'After you submit the application form or valid login credentials, AmoraCare sends a one-time verification code to your registered email address. Enter the code on the verification page before it expires. If no email arrives, check the address and spam folder, wait for the resend cooldown, then select Resend code. Never share the code with another person.',
+                'question' => 'What should I do if I do not receive the verification code?',
+                'answer' => 'Check your registered email address and Spam or Junk folder. Wait until the resend option becomes available, then select Resend code. Use the latest code before it expires and never share it with anyone. AmoraCare sends a verification code during registration and login.',
                 'icon' => 'bi-envelope-check',
                 'class' => 'is-status',
                 'match_phrases' => ['otp not received', 'verification code not received', 'resend verification code', 'email code'],
@@ -416,8 +425,8 @@ class ParentAiGuidanceController extends Controller
                 'category' => 'account-access',
                 'title' => 'Account Status',
                 'description' => 'Understand Pending, Active, or Inactive',
-                'question' => 'What do the Pending, Active, and Inactive account statuses mean?',
-                'answer' => 'Pending means your verified application is waiting for staff review. Active means staff approved your account and you may sign in. Inactive means the account has not been used for 60 days or was deactivated by authorized staff. Contact AmoraCare staff if you need an inactive account restored.',
+                'question' => 'Why is my account inactive?',
+                'answer' => 'An account may become inactive after 60 days without use or when authorized staff deactivate it. Contact AmoraCare staff to request reactivation. Pending means your verified application is still waiting for staff review; Active means staff have approved your account for sign-in.',
                 'icon' => 'bi-signpost-split',
                 'class' => 'is-status',
                 'match_phrases' => ['my account is pending', 'my account is inactive', 'activate my account'],
@@ -449,6 +458,18 @@ class ParentAiGuidanceController extends Controller
                 'match_terms' => [['replace', 'document'], ['replace', 'file'], ['change', 'uploaded'], ['correct', 'document']],
             ],
             [
+                'id' => 'rejected-document',
+                'category' => 'application-documents',
+                'title' => 'Rejected Document',
+                'description' => 'Read review remarks and correct your file',
+                'question' => 'What should I do if my document is rejected?',
+                'answer' => 'Read the reviewer\'s remarks, correct the identified problem, and upload the replacement through My Documents. Contact AmoraCare staff if you need clarification about the requested correction or if replacement is unavailable.',
+                'icon' => 'bi-file-earmark-check',
+                'class' => 'is-documents',
+                'match_phrases' => [],
+                'match_terms' => [],
+            ],
+            [
                 'id' => 'application-status',
                 'category' => 'application-documents',
                 'title' => 'Application Status',
@@ -462,12 +483,28 @@ class ParentAiGuidanceController extends Controller
                 'ai_priority_phrases' => ['what is my application status', 'my current application status', 'what is my current stage', 'explain my application status', 'what should i do next'],
             ],
             [
+                'id' => 'domestic-requirements',
+                'category' => 'application-documents',
+                'title' => 'Domestic Adoption Requirements',
+                'description' => 'An overview of common documentary requirements',
+                'question' => 'What are the common requirements for domestic adoption?',
+                'answer' => 'For regular domestic adoption, common documents include case-study reports, PSA birth records, marriage or civil-status documents, clearances, medical and psychological assessments, financial-capacity evidence, character references, photos, and required consents. A Pre-Adoption Forum attendance certificate and child-specific records may also be needed. This is an overview, not a complete checklist: requirements depend on the type and circumstances of the adoption. Check My Documents and confirm the current list with your social worker or RACCO.',
+                'sources' => [['title' => 'NACC regular adoption requirements', 'source' => 'National Authority for Child Care', 'url' => 'https://www.nacc.gov.ph/domestic-petition-regular-adoption/']],
+                'icon' => 'bi-file-earmark-check',
+                'class' => 'is-documents',
+                'exact_questions' => ['What documents are required for domestic adoption?', 'What are the requirements for domestic adoption?'],
+                'match_phrases' => [],
+                'match_terms' => [],
+            ],
+            [
                 'id' => 'home-study',
                 'category' => 'process-support',
                 'title' => 'Home Study',
                 'description' => 'Understand this assessment stage',
-                'question' => 'What is the home study stage?',
-                'answer' => "The home study is an assessment handled by qualified adoption personnel to understand the applicant's readiness, family situation, home environment, and capacity to care for a child. AmoraCare may record its progress, but the assessment and any official findings must come from authorized professionals.",
+                'question' => 'What is a Home Study Report and why is it required?',
+                'answer' => 'A Home Study Report is an assessment prepared by an adoption social worker. It considers the prospective parents\' motivation, family circumstances, home environment, and capacity to meet a child\'s needs, supported by documents. It helps the responsible authorities assess the proposed adoption and protect the child\'s welfare. Coordinate with your assigned social worker for the applicable assessment; AmoraCare does not prepare or approve the official report.',
+                'sources' => [['title' => 'Implementing rules of Republic Act No. 11642', 'source' => 'Supreme Court E-Library', 'url' => 'https://elibrary.judiciary.gov.ph/thebookshelf/showdocs/2/96120']],
+                'exact_questions' => ['What is the home study stage?', 'What is a Home Study Report?', 'Why is a Home Study Report required?'],
                 'icon' => 'bi-house-check',
                 'class' => 'is-home-study',
                 'match_phrases' => ['home study report', 'what happens during home study', 'what is home study', 'explain home study'],
@@ -479,7 +516,7 @@ class ParentAiGuidanceController extends Controller
                 'category' => 'process-support',
                 'title' => 'Expected Timeline',
                 'description' => 'Learn why completion times vary',
-                'question' => 'How long does the adoption process take?',
+                'question' => 'When will my application be completed?',
                 'answer' => 'There is no guaranteed completion date. Timing depends on the completeness and verification of documents, required assessments, case circumstances, matching and placement processes, and decisions by the responsible authorities. Check My Application for your current parent-visible stage and contact your social worker for case-specific guidance.',
                 'icon' => 'bi-clock-history',
                 'class' => 'is-timeline',
@@ -491,7 +528,8 @@ class ParentAiGuidanceController extends Controller
                 'category' => 'privacy-matching',
                 'title' => 'Privacy and Matching',
                 'description' => 'Understand protected case information',
-                'question' => 'Why can I not browse child profiles or matching rankings?',
+                'question' => 'Can I browse child profiles or matching results?',
+                'exact_questions' => ['Why can I not browse child profiles or matching rankings?'],
                 'answer' => 'Child profiles, confidential case notes, and matching rankings contain protected information and are available only to authorized personnel. The matching feature provides recommendations for professional review; prospective parents cannot browse protected child records, and the system does not make a final placement or adoption decision.',
                 'icon' => 'bi-shield-lock',
                 'class' => 'is-privacy',
@@ -503,7 +541,7 @@ class ParentAiGuidanceController extends Controller
                 'category' => 'privacy-matching',
                 'title' => 'Who Can View My Records?',
                 'description' => 'Understand role-based record access',
-                'question' => 'Who can view my personal information and application records?',
+                'question' => 'Who can view my application records?',
                 'answer' => 'Only authenticated users with the appropriate role and authorized case access may view relevant records. Prospective parents see only their own parent-visible information. Staff and authorized external reviewers receive access according to their assigned responsibilities. Child profiles, donor records, confidential notes, and other applicants’ records are not available through the parent portal.',
                 'icon' => 'bi-person-check',
                 'class' => 'is-privacy',
@@ -515,12 +553,24 @@ class ParentAiGuidanceController extends Controller
                 'category' => 'process-support',
                 'title' => 'Official Decisions',
                 'description' => 'Know what AmoraCare can and cannot decide',
-                'question' => 'Does AmoraCare approve my adoption application?',
-                'answer' => 'No. AmoraCare helps organize applications, documents, parent-visible updates, and staff workflows. It does not replace NACC, RACCO, courts, social workers, or other authorized decision-makers, and it cannot guarantee approval, matching, placement, or an adoption order.',
+                'question' => 'Does AmoraCare approve an adoption?',
+                'answer' => 'No. AmoraCare helps manage records, documents, and application updates. A status shown in the system does not itself constitute a legal adoption approval. Official decisions remain with the authorized authorities.',
                 'icon' => 'bi-buildings',
                 'class' => 'is-support',
                 'match_phrases' => ['who approves an adoption', 'final adoption decision', 'does the system approve adoption'],
                 'match_terms' => [['amoracare', 'approve'], ['who', 'approve', 'adoption'], ['system', 'approve']],
+            ],
+            [
+                'id' => 'more-help',
+                'category' => 'privacy-matching',
+                'title' => 'Need More Help?',
+                'description' => 'Use AI guidance only when you need it',
+                'question' => 'What if these FAQs do not answer my question?',
+                'answer' => 'Select Need more help? Ask AI or type your question. The assistant will provide guidance within its available information and access permissions. For official decisions or unresolved account problems, contact AmoraCare staff.',
+                'icon' => 'bi-chat-dots',
+                'class' => 'is-support',
+                'match_phrases' => ['how do i ask the ai', 'how to ask the ai'],
+                'match_terms' => [],
             ],
         ];
     }

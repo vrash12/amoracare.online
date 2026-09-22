@@ -121,17 +121,31 @@
                 </label>
                 @error('consent')<small class="field-error consent-error">{{ $message }}</small>@enderror
 
-                <label class="check-field consent-field">
-                    <input type="checkbox" name="terms_accepted" value="1" required aria-describedby="legalAgreementHelp" @checked(old('terms_accepted'))>
-                    <span id="legalAgreementHelp">
-                        <strong>Terms and privacy acknowledgment *</strong>
-                        <small>
-                            I agree to the <a href="{{ route('legal.terms') }}" target="_blank" rel="noopener noreferrer">Terms and Conditions</a>
-                            and confirm that I have read the <a href="{{ route('legal.privacy') }}" target="_blank" rel="noopener noreferrer">Privacy Notice</a>.
-                        </small>
-                    </span>
-                </label>
-                @error('terms_accepted')<small class="field-error consent-error">{{ $message }}</small>@enderror
+                <section class="terms-panel" aria-labelledby="termsHeading">
+                    <div class="terms-panel-heading">
+                        <h2 id="termsHeading">Terms and Conditions</h2>
+                        <p id="termsReadingHelp">Please read the terms below before accepting. Scroll inside the box to read all sections.</p>
+                        <div class="terms-panel-meta">
+                            <span>Effective date: {{ config('legal.effective_date') }}</span>
+                            <a href="{{ route('legal.terms') }}" target="_blank" rel="noopener noreferrer">Open full page (new tab)</a>
+                        </div>
+                    </div>
+
+                    <div id="registrationTerms" class="terms-content" role="region" tabindex="0" aria-labelledby="termsHeading" aria-describedby="termsReadingHelp">
+                        @include('partials.terms-content', ['embedded' => true])
+                    </div>
+
+                    <div class="terms-panel-acceptance">
+                        <label class="check-field consent-field" for="terms_accepted">
+                            <input id="terms_accepted" type="checkbox" name="terms_accepted" value="1" required aria-describedby="legalAgreementHelp{{ $errors->has('terms_accepted') ? ' termsAcceptanceError' : '' }}" @if($errors->has('terms_accepted')) aria-invalid="true" @endif @checked(old('terms_accepted'))>
+                            <span id="legalAgreementHelp">
+                                <strong>I have read and agree to the Terms and Conditions. *</strong>
+                                <small>I also confirm that I have read the <a href="{{ route('legal.privacy') }}" target="_blank" rel="noopener noreferrer">Privacy Notice (new tab)</a>.</small>
+                            </span>
+                        </label>
+                        @error('terms_accepted')<small id="termsAcceptanceError" class="field-error">{{ $message }}</small>@enderror
+                    </div>
+                </section>
 
                 <button type="submit" class="submit-button">Submit Application</button>
                 <p class="submit-help">Your account will remain <strong>Pending</strong> until it is reviewed and activated by authorized staff.</p>

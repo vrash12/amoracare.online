@@ -231,6 +231,59 @@
             color: #66311f;
         }
 
+        .ai-inline-faq {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--ai-border);
+            background: var(--ai-primary-soft);
+        }
+
+        .ai-faq-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ai-faq-filter {
+            padding: 9px 12px;
+            min-height: 42px;
+            border: 1px solid var(--ai-border);
+            border-radius: 20px;
+            background: #fff;
+            color: var(--ai-text);
+            font: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .ai-faq-filter[aria-pressed="true"] {
+            border-color: var(--ai-primary);
+            background: var(--ai-primary);
+            color: #fff;
+        }
+
+        .ai-faq-questions {
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 3px;
+            scrollbar-gutter: stable;
+        }
+
+        .ai-inline-faq .ai-topic-list {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .ai-inline-faq .ai-question-chip {
+            line-height: 1.5;
+            min-height: 62px;
+            overflow-wrap: anywhere;
+        }
+
+        .ai-faq-shortcut {
+            min-height: 42px;
+        }
+
         .ai-question-chip {
             --chat-button-color: #8b2f18;
             --chat-button-soft: #fff4ef;
@@ -350,6 +403,7 @@
         }
 
         .ai-question-chip:focus-visible,
+        .ai-faq-filter:focus-visible,
         .ai-faq-back:focus-visible,
         .ai-action-btn:focus-visible,
         .ai-followup-chip:focus-visible,
@@ -361,6 +415,7 @@
         }
 
         .ai-question-chip:disabled,
+        .ai-faq-filter:disabled,
         .ai-faq-back:disabled,
         .ai-action-btn:disabled,
         .ai-followup-chip:disabled,
@@ -1071,6 +1126,7 @@
             .ai-sidebar {
                 position: static;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+                order: 2;
             }
 
             .ai-sidebar .ai-side-card:first-child {
@@ -1107,6 +1163,18 @@
 
             .ai-topic-list {
                 grid-template-columns: 1fr;
+            }
+
+            .ai-inline-faq {
+                padding: 15px;
+            }
+
+            .ai-inline-faq .ai-topic-list {
+                grid-template-columns: 1fr;
+            }
+
+            .ai-faq-questions {
+                max-height: 270px;
             }
 
             .ai-chat-card {
@@ -1199,9 +1267,9 @@
                 </p>
             </div>
 
-            <div class="ai-service-status" aria-label="AI guidance service is available">
+            <div class="ai-service-status" aria-label="Predefined FAQ answers are available">
                 <span class="ai-service-dot" aria-hidden="true"></span>
-                Guidance service available
+                Quick answers without AI
             </div>
         </section>
 
@@ -1210,78 +1278,14 @@
                 <section class="ai-side-card">
                     <h2 class="ai-side-title">
                         <i class="bi bi-question-circle" aria-hidden="true"></i>
-                        Frequently asked questions
+                        Start with a quick answer
                     </h2>
                     <p class="ai-side-description">
-                        Select a topic, then choose a question for an instant answer.
+                        Click a question in the chat menu to see its saved answer. FAQ answers do not use the AI service.
                     </p>
-
-                    <div id="faqCategoryMenu" class="ai-topic-menu">
-                        <div class="ai-topic-list">
-                            @foreach($faqCategories as $category)
-                                <button
-                                    type="button"
-                                    class="ai-question-chip {{ $category['class'] }}"
-                                    data-faq-category="{{ $category['id'] }}"
-                                    aria-controls="faq-panel-{{ $category['id'] }}"
-                                    aria-expanded="false"
-                                >
-                                    <i class="bi {{ $category['icon'] }}" aria-hidden="true"></i>
-                                    <span class="ai-question-copy">
-                                        <strong>{{ $category['title'] }}</strong>
-                                        <small>{{ $category['description'] }}</small>
-                                    </span>
-                                </button>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    @foreach($faqCategories as $category)
-                        <div
-                            id="faq-panel-{{ $category['id'] }}"
-                            class="ai-faq-panel"
-                            data-faq-panel="{{ $category['id'] }}"
-                            hidden
-                        >
-                            <button
-                                type="button"
-                                class="ai-faq-back"
-                                data-faq-back
-                            >
-                                <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                                Back to topics
-                            </button>
-
-                            <div class="ai-faq-panel-heading" tabindex="-1">
-                                <i class="bi {{ $category['icon'] }}" aria-hidden="true"></i>
-                                {{ $category['title'] }} questions
-                            </div>
-
-                            <div class="ai-topic-list">
-                                @foreach($frequentlyAskedQuestions as $faq)
-                                    @if($faq['category'] === $category['id'])
-                                        <button
-                                            type="button"
-                                            class="ai-question-chip {{ $faq['class'] }}"
-                                            data-faq-id="{{ $faq['id'] }}"
-                                            data-faq-question="{{ $faq['question'] }}"
-                                        >
-                                            <i class="bi {{ $faq['icon'] }}" aria-hidden="true"></i>
-                                            <span class="ai-question-copy">
-                                                <strong>{{ $faq['title'] }}</strong>
-                                                <small>{{ $faq['description'] }}</small>
-                                            </span>
-                                        </button>
-                                    @endif
-                                @endforeach
-                            </div>
-                        </div>
-                    @endforeach
-
-                    <div class="ai-faq-fallback">
-                        <strong>Cannot find your question?</strong>
-                        Type it below. AmoraCare checks the FAQs first. If they cannot answer your question, the AI assistant will help.
-                    </div>
+                    <button type="button" class="ai-faq-back ai-faq-shortcut" data-faq-back>
+                        Browse all FAQ questions
+                    </button>
                 </section>
 
                 <section class="ai-side-card">
@@ -1355,6 +1359,46 @@
                     </div>
                 </header>
 
+                <section id="faqMenu" class="ai-inline-faq" aria-labelledby="faqMenuTitle">
+                    <h3 id="faqMenuTitle" class="ai-side-title" tabindex="-1">
+                        <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        Choose a question for a quick answer
+                    </h3>
+                    <p class="ai-side-description">Click a question below. These saved answers do not use AI.</p>
+                    <div id="faqCategoryMenu" class="ai-faq-filters" aria-label="Filter FAQ questions by topic">
+                        <button type="button" class="ai-faq-filter" data-faq-all aria-pressed="true" aria-controls="faqQuestions">All questions</button>
+                        @foreach($faqCategories as $category)
+                            <button type="button" class="ai-faq-filter" data-faq-category="{{ $category['id'] }}"
+                                aria-controls="faq-panel-{{ $category['id'] }}" aria-pressed="false">
+                                {{ $category['title'] }}
+                            </button>
+                        @endforeach
+                    </div>
+                    <div id="faqQuestions" class="ai-faq-questions" tabindex="0" role="region" aria-label="Predefined FAQ questions">
+                        @foreach($faqCategories as $category)
+                            <div id="faq-panel-{{ $category['id'] }}" class="ai-faq-panel" data-faq-panel="{{ $category['id'] }}">
+                                <h4 class="ai-faq-panel-heading" tabindex="-1">{{ $category['title'] }}</h4>
+                                <div class="ai-topic-list">
+                                    @foreach($frequentlyAskedQuestions as $faq)
+                                        @if($faq['category'] === $category['id'])
+                                            <button type="button" class="ai-question-chip {{ $faq['class'] }}"
+                                                data-faq-id="{{ $faq['id'] }}" data-faq-question="{{ $faq['question'] }}">
+                                                <i class="bi {{ $faq['icon'] }}" aria-hidden="true"></i>
+                                                <span class="ai-question-copy"><strong>{{ $faq['question'] }}</strong></span>
+                                            </button>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="ai-faq-fallback">
+                        <strong>Need a different answer?</strong>
+                        Type your question below. AmoraCare checks saved FAQs first and uses AI only when needed.
+                        After a saved answer, you can also select “Need more help? Ask AI”.
+                    </div>
+                </section>
+
                 <div class="ai-chat-stage">
                     <div
                         id="chatBox"
@@ -1418,7 +1462,7 @@
 
     <script>
         const CHAT_URL = @json(route('parent.ai.chat'));
-        const FAQ_URL = @json(route('parent.ai.faq'));
+        const FAQ_URL = @json(\Illuminate\Support\Facades\Route::has('parent.ai.faq') ? route('parent.ai.faq') : route('parent.ai.chat'));
         const CLEAR_URL = @json(route('parent.ai.clear'));
         const CSRF_TOKEN = @json(csrf_token());
         const USER_NAME = @json(auth()->user()?->name ?? 'You');
@@ -1454,6 +1498,9 @@
         const messageCount = document.getElementById("messageCount");
         const scrollLatestBtn = document.getElementById("scrollLatestBtn");
         const faqCategoryMenu = document.getElementById("faqCategoryMenu");
+        const faqMenu = document.getElementById("faqMenu");
+        const faqQuestions = document.getElementById("faqQuestions");
+        const faqAllButton = document.querySelector("[data-faq-all]");
         const faqCategoryButtons = Array.from(document.querySelectorAll("[data-faq-category]"));
         const faqPanels = Array.from(document.querySelectorAll("[data-faq-panel]"));
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1869,6 +1916,14 @@
                     copyButton.innerHTML = '<i class="bi bi-copy" aria-hidden="true"></i> Copy answer';
                     actionsDiv.appendChild(copyButton);
                     if (msg.origin === "approved_faq" && msg.question) {
+                        const anotherQuestionButton = document.createElement("button");
+                        anotherQuestionButton.type = "button";
+                        anotherQuestionButton.className = "ai-action-btn";
+                        anotherQuestionButton.dataset.faqBack = "";
+                        anotherQuestionButton.textContent = "Ask another question";
+                        anotherQuestionButton.disabled = isSending;
+                        actionsDiv.appendChild(anotherQuestionButton);
+
                         const askAiButton = document.createElement("button");
                         askAiButton.type = "button";
                         askAiButton.className = "ai-action-btn";
@@ -1894,7 +1949,7 @@
                         topicsButton.type = "button";
                         topicsButton.className = "ai-followup-chip";
                         topicsButton.dataset.faqBack = "";
-                        topicsButton.textContent = "Browse FAQ topics";
+                        topicsButton.textContent = "Back to topics";
                         list.appendChild(topicsButton);
 
                         followups.forEach(question => {
@@ -1955,28 +2010,29 @@
 
             if (!selectedPanel || !faqCategoryMenu) return;
 
-            faqCategoryMenu.hidden = true;
-
             faqPanels.forEach(panel => {
                 panel.hidden = panel !== selectedPanel;
             });
 
             faqCategoryButtons.forEach(button => {
-                button.setAttribute("aria-expanded", String(button.dataset.faqCategory === categoryId));
+                button.setAttribute("aria-pressed", String(button.dataset.faqCategory === categoryId));
             });
-
+            faqAllButton?.setAttribute("aria-pressed", "false");
+            faqQuestions.scrollTop = 0;
             selectedPanel.querySelector(".ai-faq-panel-heading")?.focus();
         }
 
         function showFaqCategories() {
             if (!faqCategoryMenu) return;
 
-            faqCategoryMenu.hidden = false;
             faqPanels.forEach(panel => {
-                panel.hidden = true;
+                panel.hidden = false;
             });
-            faqCategoryButtons.forEach(button => button.setAttribute("aria-expanded", "false"));
-            faqCategoryButtons[0]?.focus();
+            faqCategoryButtons.forEach(button => button.setAttribute("aria-pressed", "false"));
+            faqAllButton?.setAttribute("aria-pressed", "true");
+            faqQuestions.scrollTop = 0;
+            faqMenu.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+            faqAllButton?.focus({ preventScroll: true });
         }
 
         async function copyToClipboard(text) {
@@ -2006,7 +2062,7 @@
             clearBtn.disabled = loading;
             userInput.disabled = loading;
 
-            document.querySelectorAll(".ai-question-chip, .ai-followup-chip, .ai-faq-back, [data-faq-escalate]").forEach(button => {
+            document.querySelectorAll(".ai-question-chip, .ai-followup-chip, .ai-faq-filter, .ai-faq-back, [data-faq-back], [data-faq-escalate]").forEach(button => {
                 button.disabled = loading;
             });
 
@@ -2140,11 +2196,12 @@
                 }
 
                 if (!response.ok) {
-                    throw new Error(
-                        data.message ||
-                        data.details ||
-                        "The AI legal guidance request could not be completed."
-                    );
+                    const requestError = new Error(response.status === 419 || response.status === 401
+                        ? "Your session has expired. Refresh the page and sign in again before sending a question."
+                        : data.code === "ai_unavailable"
+                            ? data.message
+                            : "AI guidance is temporarily unavailable. Please use the FAQ question buttons for saved answers or contact AmoraCare staff.");
+                    throw requestError;
                 }
 
                 if (data.answer_type === "approved_faq") {
@@ -2162,15 +2219,13 @@
             } catch (error) {
                 const timedOut = error?.name === "AbortError";
                 const detail = timedOut
-                    ? "The request took too long. Please try a shorter or more specific question."
+                    ? "AI guidance took too long to respond. The FAQ question buttons still provide saved answers without AI. For case-specific help, contact AmoraCare staff."
                     : error.message;
 
                 showStatus(detail, "error");
 
                 await typeAssistantReply(
-                    timedOut
-                        ? "I could not complete the request within the available time. Please try again with a more specific question, or contact AmoraCare staff if the concern is urgent."
-                        : "Sorry, I had trouble processing your request. Please try again, or contact AmoraCare staff if the concern is urgent.",
+                    detail || "AI guidance could not be reached. Please try a saved FAQ answer or contact AmoraCare staff.",
                     [],
                     null
                 );
@@ -2301,7 +2356,7 @@
                 return;
             }
 
-            if (event.target.closest("[data-faq-back]")) {
+            if (event.target.closest("[data-faq-back], [data-faq-all]")) {
                 showFaqCategories();
                 return;
             }

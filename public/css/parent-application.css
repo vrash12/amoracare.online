@@ -54,6 +54,23 @@ legend { width: 100%; margin-bottom: 17px; color: #34231d; font-size: 17px; font
 .consent-field { margin: 0; background: var(--brand-soft); }
 .consent-field a { color: var(--brand-dark); font-weight: 850; text-underline-offset: 2px; }
 .consent-error { margin-top: -22px; }
+.terms-panel { min-width: 0; border: 1px solid #d9c2b6; border-radius: 16px; background: #fff; }
+.terms-panel-heading { padding: 18px; border-bottom: 1px solid var(--line); border-radius: 16px 16px 0 0; background: var(--brand-soft); }
+.terms-panel-heading h2 { margin: 0 0 8px; color: var(--brand-dark); font-size: 19px; }
+.terms-panel-heading p { margin: 0; color: #4d403a; font-size: 13px; line-height: 1.6; }
+.terms-panel-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin-top: 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.terms-panel a { color: var(--brand-dark); font-weight: 750; text-underline-offset: 3px; }
+.terms-content { max-height: 340px; overflow-y: auto; scrollbar-gutter: stable; padding: 18px; color: #4d403a; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.terms-content:focus-visible { outline: 3px solid var(--brand); outline-offset: -3px; }
+.terms-content .legal-callout { margin-bottom: 20px; }
+.terms-content h3 { margin: 22px 0 8px; color: var(--ink); font-size: 15px; line-height: 1.5; }
+.terms-content p { margin: 0 0 12px; }
+.terms-content ul { margin: 0 0 14px; padding-left: 22px; }
+.terms-content li + li { margin-top: 8px; }
+.terms-content .legal-source-note { color: var(--muted); font-size: 12px; }
+.terms-panel-acceptance { display: grid; gap: 10px; padding: 16px; border-top: 1px solid var(--line); }
+.terms-panel-acceptance .check-field { background: #fffdfb; }
+.terms-panel-acceptance .field-error { font-size: 13px; }
 .submit-button, .secondary-button { min-height: 50px; display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border: 1px solid transparent; border-radius: 13px; text-decoration: none; font-weight: 850; cursor: pointer; }
 .submit-button { background: var(--brand); color: #fff; box-shadow: 0 12px 26px rgba(112, 42, 24, .2); }
 .submit-button:hover { background: var(--brand-dark); }

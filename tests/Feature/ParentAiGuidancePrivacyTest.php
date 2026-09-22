@@ -301,6 +301,81 @@ class ParentAiGuidancePrivacyTest extends TestCase
         Http::assertSent(fn (ClientRequest $request) => $request['question'] === 'Can I replace my document?');
     }
 
+    public function test_reported_production_questions_use_faqs_even_without_ai_configuration(): void
+    {
+        $this->actingAs($this->createParent('production.faq@example.com'));
+        config(['services.legal_guidance.url' => null, 'services.legal_guidance.api_key' => null]);
+        Http::fake();
+
+        foreach ([
+            'What are the common requirements for domestic adoption?' => 'domestic-requirements',
+            'What is a Home Study Report and why is it required?' => 'home-study',
+            'Why can I not browse child profiles or matching rankings?' => 'matching-privacy',
+            'What should I do if my document is rejected?' => 'rejected-document',
+        ] as $question => $id) {
+            $this->postJson(route('parent.ai.chat'), ['message' => $question])
+                ->assertOk()->assertJsonPath('answer_type', 'approved_faq')
+                ->assertJsonPath('matched_faq_id', $id);
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_every_menu_button_and_exact_question_returns_a_saved_answer(): void
+    {
+        $this->actingAs($this->createParent('all.faqs@example.com'));
+        config(['services.legal_guidance.url' => null, 'services.legal_guidance.api_key' => null]);
+        Http::fake();
+        $response = $this->get(route('parent.ai.index'))->assertOk();
+        $faqs = $response->viewData('frequentlyAskedQuestions');
+        $this->assertCount(14, $faqs);
+        $response->assertSee('Choose a question for a quick answer')
+            ->assertSee('These saved answers do not use AI.');
+
+        foreach ($faqs as $faq) {
+            $response->assertSee($faq['question']);
+            foreach (['parent.ai.faq', 'parent.ai.chat'] as $routeName) {
+                $this->postJson(route($routeName), ['faq_id' => $faq['id']])
+                    ->assertOk()->assertJsonPath('reply', $faq['answer'])
+                    ->assertJsonPath('answer_type', 'approved_faq');
+            }
+            $this->postJson(route('parent.ai.chat'), ['message' => $faq['question']])
+                ->assertOk()->assertJsonPath('reply', $faq['answer'])
+                ->assertJsonPath('answer_type', 'approved_faq');
+        }
+        Http::assertNothingSent();
+    }
+
+    public function test_ai_outages_are_actionable_and_do_not_expose_upstream_details(): void
+    {
+        $parent = $this->createParent('unavailable.ai@example.com');
+        $this->actingAs($parent);
+        foreach ([
+            Http::response(['error' => 'PRIVATE-UPSTREAM-DETAIL'], 503),
+            Http::response('<html>upstream error</html>', 200),
+            Http::response(['answer' => ''], 200),
+        ] as $upstreamResponse) {
+            Http::fake(['*' => $upstreamResponse]);
+            $this->postJson(route('parent.ai.chat'), ['message' => 'Explain my next case-specific step'])
+                ->assertStatus(503)->assertJsonPath('code', 'ai_unavailable')
+                ->assertJsonMissingPath('details')->assertJsonMissingPath('sent_parent_context')
+                ->assertDontSee('PRIVATE-UPSTREAM-DETAIL')->assertDontSee('test-internal-key');
+            $this->assertNull($this->app['session.store']->get($this->historyKey($parent)));
+        }
+    }
+
+    public function test_missing_ai_configuration_does_not_break_faq_buttons(): void
+    {
+        $this->actingAs($this->createParent('missing.ai@example.com'));
+        config(['services.legal_guidance.api_key' => null]);
+        Http::fake();
+        $this->postJson(route('parent.ai.chat'), ['message' => 'Explain my next case-specific step'])
+            ->assertStatus(503)->assertJsonPath('code', 'ai_unavailable')
+            ->assertJsonMissingPath('details');
+        $this->postJson(route('parent.ai.chat'), ['faq_id' => 'home-study'])
+            ->assertOk()->assertJsonPath('answer_type', 'approved_faq');
+        Http::assertNothingSent();
+    }
+
     public function test_clear_removes_only_the_authenticated_parents_history(): void
     {
         $firstParent = $this->createParent('first.parent@example.com');
