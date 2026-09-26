@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ParentController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Auth\AccountController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Parent\ParentAiGuidanceController;
@@ -95,6 +96,17 @@ Route::post('/logout', [LoginController::class, 'logout'])
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
+
+// Each portal uses its own guard, even when several accounts share one browser.
+foreach (['admin' => 'admin', 'parent' => 'prospective_parent', 'reviewer' => 'external_reviewer'] as $prefix => $role) {
+    Route::middleware(["auth:{$role},web", "role:{$role}"])
+        ->prefix($prefix.'/account')->name($prefix.'.account.')->group(function () {
+            Route::get('/security', [AccountController::class, 'security'])->name('security');
+            Route::put('/password', [AccountController::class, 'updatePassword'])->middleware('throttle:6,1')->name('password');
+            Route::get('/terms', [AccountController::class, 'terms'])->name('terms');
+            Route::post('/terms', [AccountController::class, 'acceptTerms'])->middleware('throttle:10,1')->name('terms.accept');
+        });
+}
 
 /*
 |--------------------------------------------------------------------------

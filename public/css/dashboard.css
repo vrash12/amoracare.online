@@ -72,6 +72,10 @@ body.dashboard-body {
 .mobile-sidebar-toggle {
     display: none;
 }
+
+.mobile-bottom-nav {
+    display: none;
+}
 /* =========================================================
    Dashboard Layout
    ========================================================= */
@@ -1083,6 +1087,145 @@ textarea:focus {
     text-decoration: none;
 }
 
+.ac-pagination {
+    display: grid;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.ac-pagination-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.ac-page-link,
+.ac-page-gap {
+    min-width: 38px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 11px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1;
+}
+
+a.ac-page-link:hover,
+a.ac-page-link:focus-visible,
+.ac-page-link[aria-current="page"] {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
+.ac-page-link[aria-disabled="true"] {
+    color: var(--muted-light);
+    background: var(--surface-soft);
+}
+
+.ac-pagination-summary {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.child-search-control {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+#childSearchStatus {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.account-panel {
+    max-width: 900px;
+}
+
+.account-panel h1 {
+    margin-top: 0;
+    color: var(--primary);
+}
+
+.account-form {
+    display: grid;
+    gap: 16px;
+    max-width: 560px;
+    margin-top: 22px;
+}
+
+.account-form label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.account-form input:not([type="checkbox"]) {
+    width: 100%;
+}
+
+.account-consent {
+    display: flex !important;
+    gap: 10px;
+    align-items: flex-start;
+    font-weight: 500 !important;
+    line-height: 1.6;
+}
+
+.account-consent input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    margin-top: 3px;
+}
+
+.account-terms-box {
+    max-height: 460px;
+    overflow: auto;
+    padding: 22px;
+    border: 1px solid var(--border-warm);
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+    line-height: 1.65;
+}
+
+.account-terms-box:focus-visible {
+    outline: 3px solid var(--primary-soft);
+    outline-offset: 3px;
+}
+
+.account-terms-box h2 {
+    margin-top: 0;
+}
+
+@media (max-width: 520px) {
+    .ac-pagination-controls {
+        gap: 4px;
+    }
+
+    .ac-page-link,
+    .ac-page-gap {
+        min-width: 34px;
+        min-height: 34px;
+        padding-inline: 8px;
+        font-size: 12px;
+    }
+
+    .account-terms-box {
+        max-height: 380px;
+        padding: 16px;
+    }
+}
+
 nav[role="navigation"] {
     margin-top: 20px;
 }
@@ -1340,7 +1483,7 @@ nav[role="navigation"] {
 
     .dashboard-content {
         width: 100%;
-        padding: 18px 16px 30px;
+        padding: 18px 16px 92px;
     }
 
     .dashboard-content > *,
@@ -2184,6 +2327,53 @@ input[type="radio"] {
     .parent-document-row {
         align-items: flex-start;
         flex-direction: column;
+    }
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 900;
+        display: flex;
+        justify-content: space-around;
+        gap: 4px;
+        padding: 8px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+        border-top: 1px solid var(--border);
+        background: rgba(255, 255, 255, .97);
+        box-shadow: 0 -8px 24px rgba(16, 24, 40, .10);
+        backdrop-filter: blur(12px);
+    }
+
+    .dashboard-content {
+        padding-bottom: 92px;
+    }
+
+    .mobile-bottom-nav a {
+        min-width: 0;
+        flex: 1 1 0;
+        display: grid;
+        justify-items: center;
+        gap: 3px;
+        padding: 5px 3px;
+        border-radius: 9px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 750;
+        line-height: 1.1;
+        text-decoration: none;
+    }
+
+    .mobile-bottom-nav a i {
+        font-size: 18px;
+        line-height: 1;
+    }
+
+    .mobile-bottom-nav a.is-active {
+        background: var(--primary-soft);
+        color: #fff;
     }
 }
 

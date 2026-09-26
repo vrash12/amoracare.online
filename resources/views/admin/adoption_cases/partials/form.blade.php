@@ -312,6 +312,11 @@
                     <label for="child_id">
                         Child <span class="required">*</span>
                     </label>
+                    <div id="childSearchControl" hidden>
+                        <label for="childSearch">Search child by name or code</label>
+                        <input type="search" id="childSearch" placeholder="Type a name or child code" autocomplete="off" aria-controls="child_id" aria-describedby="childSearchStatus">
+                        <small id="childSearchStatus" role="status" aria-live="polite"></small>
+                    </div>
                     <select id="child_id" name="child_id" required>
                         <option value="">Select child profile</option>
                         @foreach($children as $child)
@@ -566,3 +571,4 @@
         </div>
     </div>
 </div>
+<script src="{{ asset('js/child-search.js') }}" defer></script>

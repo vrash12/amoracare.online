@@ -11,6 +11,7 @@ use App\Services\UserAccountStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -94,7 +95,11 @@ class UserController extends Controller
             'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
         ]);
 
-        User::create($validated);
+        $user = new User($validated);
+        if (Schema::hasColumn('users', 'must_change_password')) {
+            $user->forceFill(['must_change_password' => true]);
+        }
+        $user->save();
 
         return redirect()
             ->route('admin.users.index')
@@ -139,6 +144,11 @@ class UserController extends Controller
 
         if (empty($validated['password'])) {
             unset($validated['password']);
+        } else {
+            if (Schema::hasColumn('users', 'must_change_password')) {
+                $user->forceFill(['must_change_password' => true]);
+            }
+            $user->forceFill(['remember_token' => null]);
         }
 
         $user->update($validated);

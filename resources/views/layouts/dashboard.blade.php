@@ -267,6 +267,25 @@
         <i class="bi bi-list" aria-hidden="true"></i>
     </button>
 
+    @auth
+        <nav class="mobile-bottom-nav" aria-label="Mobile portal navigation">
+            @if($roleSlug === 'admin')
+                <a href="{{ route('admin.dashboard') }}" @class(['is-active' => request()->routeIs('admin.dashboard')])><i class="bi bi-grid-1x2" aria-hidden="true"></i><span>Home</span></a>
+                <a href="{{ route('admin.users.index') }}" @class(['is-active' => request()->routeIs('admin.users.*')])><i class="bi bi-people" aria-hidden="true"></i><span>Users</span></a>
+                <a href="{{ route('admin.adoption-cases.index') }}" @class(['is-active' => request()->routeIs('admin.adoption-cases.*')])><i class="bi bi-folder2-open" aria-hidden="true"></i><span>Cases</span></a>
+                <a href="{{ route('admin.reports.index') }}" @class(['is-active' => request()->routeIs('admin.reports.*')])><i class="bi bi-bar-chart-line" aria-hidden="true"></i><span>Reports</span></a>
+            @elseif($roleSlug === 'prospective_parent')
+                <a href="{{ route('parent.dashboard') }}" @class(['is-active' => request()->routeIs('parent.dashboard')])><i class="bi bi-grid-1x2" aria-hidden="true"></i><span>Home</span></a>
+                <a href="{{ route('parent.application.index') }}" @class(['is-active' => request()->routeIs('parent.application.*')])><i class="bi bi-file-earmark-person" aria-hidden="true"></i><span>Application</span></a>
+                <a href="{{ route('parent.documents.index') }}" @class(['is-active' => request()->routeIs('parent.documents.*')])><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i><span>Documents</span></a>
+                <a href="{{ route('parent.ai.index') }}" @class(['is-active' => request()->routeIs('parent.ai.*')])><i class="bi bi-chat-square-text" aria-hidden="true"></i><span>Guidance</span></a>
+            @elseif($roleSlug === 'external_reviewer')
+                <a href="{{ route('reviewer.dashboard') }}" @class(['is-active' => request()->routeIs('reviewer.dashboard')])><i class="bi bi-grid-1x2" aria-hidden="true"></i><span>Home</span></a>
+                <a href="{{ route('reviewer.cases.index') }}" @class(['is-active' => request()->routeIs('reviewer.cases.*')])><i class="bi bi-clipboard-data" aria-hidden="true"></i><span>Cases</span></a>
+            @endif
+        </nav>
+    @endauth
+
     <main class="dashboard-main">
         <header class="dashboard-topbar">
             <div class="topbar-left">

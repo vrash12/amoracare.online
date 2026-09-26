@@ -18,6 +18,7 @@ class ReviewerDashboardController extends Controller
         $baseQuery = ExternalReviewerCaseAccess::query()
             ->where('reviewer_id', $user->id)
             ->where('access_status', 'active')
+            ->whereHas('adoptionCase')
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>=', now());
@@ -34,6 +35,7 @@ class ReviewerDashboardController extends Controller
         $submittedNotes = \App\Models\AdoptionCaseNote::query()
             ->where('created_by', $user->id)
             ->where('note_type', 'external_review')
+            ->whereHas('adoptionCase')
             ->count();
 
         $documentChecks = (clone $baseQuery)

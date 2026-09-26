@@ -7,6 +7,7 @@ use App\Services\UserAccountStatusService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
 class RoleMiddleware
@@ -50,6 +51,30 @@ class RoleMiddleware
         }
 
         $request->session()->put('active_auth_guard', Auth::getDefaultDriver());
+
+        $passwordKey = 'account_password_hash.'.Auth::getDefaultDriver().'.'.$user->getKey();
+        $sessionPasswordHash = $request->session()->get($passwordKey);
+        if (is_string($sessionPasswordHash) && ! hash_equals($user->password, $sessionPasswordHash)) {
+            $this->logoutCurrentGuard($request);
+            $request->session()->forget($passwordKey);
+
+            return redirect()->route('login')->with('error', 'Your password changed. Please sign in again.');
+        }
+        $request->session()->put($passwordKey, $user->password);
+
+        $accountSetupColumnsAvailable = Schema::hasColumn('users', 'must_change_password')
+            && Schema::hasColumn('users', 'terms_accepted_version');
+
+        if ($accountSetupColumnsAvailable && ! $request->routeIs('*.account.*')) {
+            $setupRoute = $user->must_change_password ? $user->accountRoute('security')
+                : (! $user->hasAcceptedCurrentTerms() ? $user->accountRoute('terms') : null);
+
+            if ($setupRoute) {
+                return $request->expectsJson()
+                    ? response()->json(['message' => 'Complete account setup before continuing.', 'redirect' => route($setupRoute)], 403)
+                    : redirect()->route($setupRoute);
+            }
+        }
 
         return $next($request);
     }

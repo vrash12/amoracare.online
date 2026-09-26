@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -154,7 +155,7 @@ class ParentController extends Controller
                 ]
             );
 
-            $parent = User::create([
+            $parent = new User([
                 'role_id' => $role->id,
                 'name' => $validated['name'],
                 'email' => $validated['email'],
@@ -162,6 +163,10 @@ class ParentController extends Controller
                 'status' => $validated['status'],
                 'password' => Hash::make($validated['password']),
             ]);
+            if (Schema::hasColumn('users', 'must_change_password')) {
+                $parent->forceFill(['must_change_password' => true]);
+            }
+            $parent->save();
 
             ParentMatchingProfile::create($this->profilePayload($validated, $request, $parent->id));
         });
@@ -242,6 +247,10 @@ class ParentController extends Controller
 
             if (!empty($validated['password'])) {
                 $parentData['password'] = Hash::make($validated['password']);
+                if (Schema::hasColumn('users', 'must_change_password')) {
+                    $parent->forceFill(['must_change_password' => true]);
+                }
+                $parent->forceFill(['remember_token' => null]);
             }
 
             $parent->update($parentData);

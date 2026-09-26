@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use RuntimeException;
@@ -135,6 +136,7 @@ class EmailVerificationController extends Controller
         $request->session()->regenerate();
         $this->clearVerificationSession($request);
         $request->session()->put('active_auth_guard', $guard);
+        $request->session()->put('account_password_hash.'.$guard.'.'.$user->getKey(), $user->password);
 
         $user->update(['last_login_at' => now()]);
 
@@ -303,7 +305,13 @@ class EmailVerificationController extends Controller
                     'password' => (string) $data['password_hash'],
                 ]);
 
-                $parent->forceFill(['email_verified_at' => now()])->saveQuietly();
+                $verificationFields = ['email_verified_at' => now()];
+                if (Schema::hasColumn('users', 'terms_accepted_version')) {
+                    $verificationFields['terms_accepted_version'] = (string) $data['terms_version'];
+                    $verificationFields['terms_accepted_at'] = $data['consented_at'];
+                    $verificationFields['must_change_password'] = false;
+                }
+                $parent->forceFill($verificationFields)->saveQuietly();
 
                 ParentMatchingProfile::create([
                     'user_id' => $parent->id,

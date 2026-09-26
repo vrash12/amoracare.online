@@ -29,6 +29,7 @@ class AuthorizedCaseController extends Controller
             ])
             ->where('reviewer_id', $user->id)
             ->where('access_status', 'active')
+            ->whereHas('adoptionCase')
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>=', now());
@@ -364,6 +365,9 @@ class AuthorizedCaseController extends Controller
         if ($access->reviewer_id !== Auth::id()) {
             abort(403, 'You are not authorized to view this case.');
         }
+
+        // Historical access rows can outlive a soft-deleted case.
+        abort_unless($access->adoptionCase()->exists(), 404, 'This adoption case is no longer available.');
 
         if ($access->access_status !== 'active') {
             abort(403, 'This case access is no longer active.');

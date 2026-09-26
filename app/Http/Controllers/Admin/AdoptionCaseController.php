@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -280,11 +281,14 @@ public function store(
     {
         $this->authorizeAdmin();
 
-        $adoptionCase->update([
-            'updated_by' => Auth::id(),
-        ]);
-
-        $adoptionCase->delete();
+        DB::transaction(function () use ($adoptionCase) {
+            $adoptionCase->update(['updated_by' => Auth::id()]);
+            // Keep the case, notes, and files recoverable; expire related access atomically.
+            if (Schema::hasTable('external_reviewer_case_accesses')) {
+                $adoptionCase->reviewerAccesses()->update(['expires_at' => now()->subSecond()]);
+            }
+            $adoptionCase->delete();
+        });
 
         return redirect()
             ->route('admin.adoption-cases.index')

@@ -46,6 +46,9 @@ class User extends Authenticatable
         'last_login_at' => 'datetime',
         'activated_at' => 'datetime',
         'password' => 'hashed',
+        'must_change_password' => 'boolean',
+        'password_changed_at' => 'datetime',
+        'terms_accepted_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -135,6 +138,24 @@ class User extends Authenticatable
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function hasAcceptedCurrentTerms(): bool
+    {
+        return $this->terms_accepted_at !== null
+            && hash_equals((string) config('legal.terms_version'), (string) $this->terms_accepted_version);
+    }
+
+    public function accountRoute(string $action): string
+    {
+        $prefix = match ($this->role?->slug) {
+            'admin' => 'admin',
+            'prospective_parent' => 'parent',
+            'external_reviewer' => 'reviewer',
+            default => throw new \LogicException('No account portal for this role.'),
+        };
+
+        return $prefix.'.account.'.$action;
     }
 
     public function hasRole(string $roleSlug): bool
