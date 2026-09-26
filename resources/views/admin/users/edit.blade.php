@@ -38,11 +38,7 @@
                     @error('status')<small class="form-error">{{ $message }}</small>@enderror
                 </div>
 
-                <div class="form-group">
-                    <label for="name">Full Name</label>
-                    <input type="text" name="name" id="name" class="form-control" value="{{ old('name', $user->name) }}" maxlength="150" autocapitalize="words" data-auto-capitalize="words" required>
-                    @error('name')<small class="form-error">{{ $message }}</small>@enderror
-                </div>
+                @include('admin.users._name-fields', ['user' => $user])
 
                 <div class="form-group">
                     <label for="email">Email Address</label>

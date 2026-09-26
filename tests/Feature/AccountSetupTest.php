@@ -42,6 +42,7 @@ class AccountSetupTest extends TestCase
         });
 
         (require database_path('migrations/2026_09_26_000000_add_account_setup_to_users_table.php'))->up();
+        (require database_path('migrations/2026_09_26_000001_add_name_parts_to_users_table.php'))->up();
 
         // Exercise the real access middleware without unrelated dashboard tables.
         foreach (self::portals() as [$guard, $prefix]) {
@@ -181,7 +182,10 @@ class AccountSetupTest extends TestCase
         $parentRole = Role::create(['name' => 'Parent', 'slug' => 'prospective_parent']);
         $payload = [
             'role_id' => $parentRole->id,
-            'name' => 'New Parent',
+            'first_name' => 'New',
+            'middle_name' => 'Test',
+            'last_name' => 'Parent',
+            'name_extension' => '',
             'email' => 'new-parent@example.com',
             'status' => User::STATUS_ACTIVE,
             'password' => 'TemporaryPass123!',
@@ -193,6 +197,10 @@ class AccountSetupTest extends TestCase
         $this->assertTrue($parent->must_change_password);
         $this->assertFalse($parent->hasAcceptedCurrentTerms());
         $this->assertNull($parent->email_verified_at);
+        $this->assertSame('New', $parent->first_name);
+        $this->assertSame('Test', $parent->middle_name);
+        $this->assertSame('Parent', $parent->last_name);
+        $this->assertSame('New Test Parent', $parent->name);
 
         $parent->forceFill(['must_change_password' => false, 'remember_token' => 'old-token'])->save();
         $this->put(route('admin.users.update', $parent), $payload)

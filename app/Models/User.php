@@ -4,6 +4,7 @@
 
 namespace App\Models;
 
+use App\Support\PersonName;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -28,6 +28,10 @@ class User extends Authenticatable
     protected $fillable = [
         'role_id',
         'name',
+        'first_name',
+        'middle_name',
+        'last_name',
+        'name_extension',
         'email',
         'password',
         'phone_number',
@@ -53,6 +57,29 @@ class User extends Authenticatable
 
     protected static function booted(): void
     {
+        static::saving(function (User $user): void {
+            if (! Schema::hasColumn($user->getTable(), 'first_name')) {
+                return;
+            }
+
+            if ($user->isDirty(PersonName::FIELDS)) {
+                foreach (PersonName::FIELDS as $field) {
+                    $value = $field === 'name_extension'
+                        ? PersonName::extension($user->{$field})
+                        : PersonName::capitalize($user->{$field});
+                    $user->{$field} = $value === '' ? null : $value;
+                }
+                $user->name = PersonName::join($user->getAttributes());
+            } elseif ($user->isDirty('name') && $user->exists) {
+                // Legacy full-name forms must not leave stale structured names.
+                foreach (PersonName::FIELDS as $field) {
+                    if ($user->{$field} !== null) {
+                        $user->{$field} = null;
+                    }
+                }
+            }
+        });
+
         static::creating(function (User $user): void {
             if (
                 $user->status === self::STATUS_ACTIVE
@@ -91,11 +118,7 @@ class User extends Authenticatable
     protected function name(): Attribute
     {
         return Attribute::make(
-            set: fn (?string $value) => Str::of((string) $value)
-                ->squish()
-                ->lower()
-                ->title()
-                ->toString()
+            set: fn (?string $value) => PersonName::full($value)
         );
     }
 

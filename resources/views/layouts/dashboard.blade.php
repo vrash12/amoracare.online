@@ -17,7 +17,17 @@
 </head>
 
 @php
-    $user = auth()->user();
+    $configuredGuards = array_values((array) config('auth.role_guards', []));
+    $configuredGuards[] = 'web';
+    $configuredGuards = array_values(array_unique($configuredGuards));
+    $preferredGuard = session('active_auth_guard');
+    $authGuard = is_string($preferredGuard)
+        && in_array($preferredGuard, $configuredGuards, true)
+        && auth($preferredGuard)->check()
+            ? $preferredGuard
+            : collect($configuredGuards)->first(fn (string $guard) => auth($guard)->check());
+    $user = $authGuard ? auth($authGuard)->user() : null;
+    $isPortalAuthenticated = $user !== null;
     $roleSlug = $user?->role?->slug ?? 'guest';
 
     $roleClass = match ($roleSlug) {
@@ -41,7 +51,7 @@
         default => 'Dashboard',
     };
 
-    $authGuard = config("auth.role_guards.{$roleSlug}", 'web');
+    $authGuard = $authGuard ?: config("auth.role_guards.{$roleSlug}", 'web');
 @endphp
 
 <body class="dashboard-body {{ $roleClass }}">
@@ -77,7 +87,7 @@
             <img src="{{ asset('images/amora.png') }}" alt="AmoraCare Logo">
         </button>
 
-        @auth
+        @if($isPortalAuthenticated)
             <nav class="sidebar-nav">
                 {{-- ADMIN MENU --}}
                 @if($roleSlug === 'admin')
@@ -233,12 +243,12 @@
             <div class="sidebar-bottom">
                 <div class="role-card">
                     <div class="role-avatar">
-                        {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                        {{ strtoupper(substr($user->name, 0, 1)) }}
                     </div>
 
                     <div class="role-card-text">
-                        <strong>{{ auth()->user()->name }}</strong>
-                        <span>{{ auth()->user()->role?->name }}</span>
+                        <strong>{{ $user->name }}</strong>
+                        <span>{{ $user->role?->name }}</span>
                     </div>
                 </div>
 
@@ -263,7 +273,7 @@
                     </form>
                 </div>
             </div>
-        @endauth
+        @endif
     </aside>
 
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
@@ -280,7 +290,7 @@
         <i class="bi bi-list" aria-hidden="true"></i>
     </button>
 
-    @auth
+    @if($isPortalAuthenticated)
         <nav class="mobile-bottom-nav" aria-label="Mobile portal navigation">
             @if($roleSlug === 'admin')
                 <a href="{{ route('admin.dashboard') }}" @class(['is-active' => request()->routeIs('admin.dashboard')])><i class="bi bi-grid-1x2" aria-hidden="true"></i><span>Home</span></a>
@@ -297,7 +307,7 @@
                 <a href="{{ route('reviewer.cases.index') }}" @class(['is-active' => request()->routeIs('reviewer.cases.*')])><i class="bi bi-clipboard-data" aria-hidden="true"></i><span>Cases</span></a>
             @endif
         </nav>
-    @endauth
+    @endif
 
     <main class="dashboard-main">
         <header class="dashboard-topbar">
@@ -307,13 +317,13 @@
                 </div>
             </div>
 
-            @auth
+            @if($isPortalAuthenticated)
                 <div class="topbar-actions">
                     <div class="topbar-user">
-                        <strong>{{ auth()->user()->name ?? 'Guest' }}</strong>
+                        <strong>{{ $user->name ?? 'Guest' }}</strong>
                     </div>
                 </div>
-            @endauth
+            @endif
         </header>
 
         <section class="dashboard-content">

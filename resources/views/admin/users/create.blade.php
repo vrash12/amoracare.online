@@ -79,24 +79,7 @@
                     @enderror
                 </div>
 
-                <div class="form-group">
-                    <label for="name">Full Name</label>
-                    <input
-                        type="text"
-                        name="name"
-                        id="name"
-                        class="form-control"
-                        value="{{ old('name') }}"
-                        maxlength="150"
-                        autocapitalize="words"
-                        data-auto-capitalize="words"
-                        required
-                    >
-
-                    @error('name')
-                        <small class="form-error">{{ $message }}</small>
-                    @enderror
-                </div>
+                @include('admin.users._name-fields')
 
                 <div class="form-group">
                     <label for="email">Email Address</label>
