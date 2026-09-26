@@ -39,6 +39,13 @@ class AccountController extends Controller
             'remember_token' => Str::random(60),
         ])->save();
 
+        // Refresh only this session's password fingerprint. Other sessions with
+        // the previous password must still sign in again.
+        $request->session()->put(
+            'account_password_hash.'.Auth::getDefaultDriver().'.'.$user->getKey(),
+            $user->password
+        );
+
         // Keep the other portal guards in this shared browser session intact.
         $request->session()->regenerateToken();
 

@@ -214,6 +214,19 @@
                         <span class="nav-text">Authorized Cases</span>
                     </a>
                 @endif
+                @if(in_array($roleSlug, ['admin', 'prospective_parent', 'external_reviewer'], true))
+                    <div class="nav-label">My Account</div>
+                    <a href="{{ route($user->accountRoute('security')) }}"
+                       class="sidebar-link {{ request()->routeIs('*.account.security', '*.account.password') ? 'active' : '' }}">
+                        <span class="nav-icon"><i class="bi bi-key" aria-hidden="true"></i></span>
+                        <span class="nav-text">Change password</span>
+                    </a>
+                    <a href="{{ route($user->accountRoute('terms')) }}"
+                       class="sidebar-link {{ request()->routeIs('*.account.terms*') ? 'active' : '' }}">
+                        <span class="nav-icon"><i class="bi bi-file-earmark-check" aria-hidden="true"></i></span>
+                        <span class="nav-text">Terms and Conditions</span>
+                    </a>
+                @endif
             </nav>
 
             {{-- Profile and logout grouped at the bottom --}}
