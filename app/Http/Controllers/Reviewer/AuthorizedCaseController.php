@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdoptionCaseDocument;
 use App\Models\ExternalReviewerCaseAccess;
 use App\Services\ExternalReviewerAccessService;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -366,8 +367,16 @@ class AuthorizedCaseController extends Controller
             abort(403, 'You are not authorized to view this case.');
         }
 
-        // Historical access rows can outlive a soft-deleted case.
-        abort_unless($access->adoptionCase()->exists(), 404, 'This adoption case is no longer available.');
+        // A saved link can outlive a case. Return to the current list before
+        // loading documents or allowing any review action on a removed case.
+        if (! $access->adoptionCase()->exists()) {
+            $message = 'This adoption case is no longer available. It has been removed from your authorized cases.';
+            $response = request()->expectsJson()
+                ? response()->json(['message' => $message, 'redirect' => route('reviewer.cases.index')], 404)
+                : redirect()->route('reviewer.cases.index')->with('error', $message);
+
+            throw new HttpResponseException($response);
+        }
 
         if ($access->access_status !== 'active') {
             abort(403, 'This case access is no longer active.');

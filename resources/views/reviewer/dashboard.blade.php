@@ -174,6 +174,12 @@
             <a href="{{ route('reviewer.cases.index') }}" class="reviewer-btn reviewer-btn-primary">
                 View Authorized Cases
             </a>
+            <a href="{{ route('reviewer.account.security') }}" class="reviewer-btn reviewer-btn-light">
+                Change password
+            </a>
+            <a href="{{ route('reviewer.account.terms') }}" class="reviewer-btn reviewer-btn-light">
+                Terms and Conditions
+            </a>
         </div>
     </div>
 </div>

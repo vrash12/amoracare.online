@@ -178,6 +178,13 @@
             align-items: center;
         }
 
+        .matching-actions .btn {
+            flex: 0 0 auto;
+            min-height: 36px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
         .matching-notice {
             border-radius: 18px;
             padding: 18px;

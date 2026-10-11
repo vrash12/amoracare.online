@@ -177,13 +177,13 @@ class UserController extends Controller
             $parts[$field] = $parts[$field] === '' ? null : $parts[$field];
         }
         // Keep the established full-name column for reports and older modules.
-        $request->merge(['name' => PersonName::join($parts)]);
+        $name = PersonName::join($parts);
 
-        return array_filter(
+        return ['name' => $name, ...array_filter(
             $parts,
             fn (mixed $value, string $field): bool => Schema::hasColumn('users', $field),
             ARRAY_FILTER_USE_BOTH
-        );
+        )];
     }
 
     public function destroy(User $user): RedirectResponse

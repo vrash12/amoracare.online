@@ -381,7 +381,7 @@
         </div>
 
         <div style="margin-top: 16px;">
-            {{ $runs->links() }}
+            {{ $runs->links('pagination.amoracare') }}
         </div>
     </div>
 @endsection

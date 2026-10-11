@@ -41,7 +41,8 @@ class LegalPagesTest extends TestCase
                 'id="registrationTerms"',
                 '1. Purpose and scope',
                 '5. AI legal guidance',
-                '12. Questions and concerns',
+                '12. External reviewer responsibilities',
+                '13. Questions and concerns',
                 'id="terms_accepted"',
                 'Submit Application',
             ], false);

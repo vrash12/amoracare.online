@@ -81,45 +81,24 @@ body.dashboard-body {
     display: block;
 }
 
-.docs-icon-fallback {
-    display: inline-grid;
-    place-items: center;
+.document-status-icon {
+    display: inline-block;
+    flex-shrink: 0;
     width: 1.2em;
     height: 1.2em;
-    font-family: Arial, sans-serif;
-    font-size: 1.15em;
-    font-style: normal;
-    font-weight: 900;
-    line-height: 1;
+    vertical-align: middle;
 }
 
-.docs-status > .bi,
-.docs-stat.is-action .docs-stat-icon > .bi,
-.docs-stat.is-waiting .docs-stat-icon > .bi {
-    display: none;
-}
-
-.docs-status.is-pending .docs-icon-fallback {
-    color: #92400e;
-}
-
-.docs-status.is-submitted .docs-icon-fallback,
-.docs-status.is-verified .docs-icon-fallback {
-    color: #166534;
-}
-
-.docs-status.is-review .docs-icon-fallback {
-    color: #6d28d9;
-}
-
-.docs-status.is-rejected .docs-icon-fallback,
-.docs-status.is-expired .docs-icon-fallback,
-.docs-stat.is-action .docs-icon-fallback {
+.document-status-icon.is-action {
     color: #dc2626;
 }
 
-.docs-stat.is-waiting .docs-icon-fallback {
-    color: var(--docs-blue);
+.document-status-icon.is-review {
+    color: #1d4ed8;
+}
+
+.document-status-icon.is-verified {
+    color: #166534;
 }
 
 .required-marker {

@@ -15,8 +15,9 @@
             @method('PUT')
 
             <div class="form-grid">
+                <p class="form-group full">Fields marked <span class="required-marker" aria-hidden="true">*</span> are required.</p>
                 <div class="form-group">
-                    <label for="role_id">Role</label>
+                    <label for="role_id">Role <span class="required-marker" aria-hidden="true">*</span></label>
                     <select name="role_id" id="role_id" class="form-control" required>
                         @foreach($roles as $role)
                             <option value="{{ $role->id }}" @selected((string) old('role_id', $user->role_id) === (string) $role->id)>{{ $role->name }}</option>
@@ -26,7 +27,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="status">Status</label>
+                    <label for="status">Status <span class="required-marker" aria-hidden="true">*</span></label>
                     <select name="status" id="status" class="form-control" required>
                         @foreach(['active' => 'Active', 'inactive' => 'Inactive', 'pending' => 'Pending'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('status', $user->status) === $value)>{{ $label }}</option>
@@ -41,7 +42,7 @@
                 @include('admin.users._name-fields', ['user' => $user])
 
                 <div class="form-group">
-                    <label for="email">Email Address</label>
+                    <label for="email">Email Address <span class="required-marker" aria-hidden="true">*</span></label>
                     <input type="email" name="email" id="email" class="form-control" value="{{ old('email', $user->email) }}" maxlength="150" required>
                     <small style="color:#667085;">Changing this address requires the user to verify the new email at the next sign-in.</small>
                     @error('email')<small class="form-error">{{ $message }}</small>@enderror
@@ -60,7 +61,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="password_confirmation">Confirm New Password</label>
+                    <label for="password_confirmation">Confirm New Password <span class="required-marker" id="passwordConfirmationRequired" aria-hidden="true" hidden>*</span><span class="field-optional">(required when changing password)</span></label>
                     <input type="password" name="password_confirmation" id="password_confirmation" class="form-control" minlength="8" maxlength="255" autocomplete="new-password">
                 </div>
             </div>
@@ -81,6 +82,16 @@
             const toggle = document.getElementById('userPasswordToggle');
             const password = document.getElementById('password');
             const confirmation = document.getElementById('password_confirmation');
+            const confirmationMarker = document.getElementById('passwordConfirmationRequired');
+
+            function syncPasswordConfirmation() {
+                const required = Boolean(password?.value);
+                if (confirmation) confirmation.required = required;
+                if (confirmationMarker) confirmationMarker.hidden = !required;
+            }
+
+            password?.addEventListener('input', syncPasswordConfirmation);
+            syncPasswordConfirmation();
 
             toggle?.addEventListener('click', function () {
                 const showing = password?.type === 'text';

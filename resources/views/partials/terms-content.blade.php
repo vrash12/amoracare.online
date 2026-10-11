@@ -16,6 +16,7 @@
             <li>You must provide accurate, current, and complete information and use an email address that you are authorized to access.</li>
             <li>You must complete the required email verification before registration or login is completed.</li>
             <li>You are responsible for protecting your password and one-time verification codes and for all authorized activity performed through your account.</li>
+            <li>If an administrator gives you a temporary password, you must replace it with your own password before accessing your portal. You can change it later using the Change password option.</li>
             <li>You must not share credentials, impersonate another person, or attempt to use a role or case access that has not been assigned to you.</li>
             <li>You should sign out after using a shared device and immediately report suspected unauthorized access to an AmoraCare administrator.</li>
         </ul>
@@ -75,8 +76,20 @@
         <p>These terms may be updated when system functions, organizational procedures, or applicable requirements change. The effective date will be revised, and users may be asked to review and accept a material update before continuing to use affected services.</p>
     </section>
 
+    <section id="external-review">
+        <{{ $termsHeadingTag }}>12. External reviewer responsibilities</{{ $termsHeadingTag }}>
+        <ul>
+            <li>Use your reviewer account only for case reviews authorized by the organization. Access to one case does not authorize access to other records or administrative functions.</li>
+            <li>Keep child, applicant, family, document, and case information confidential. Do not share records, screenshots, downloaded files, passwords, or verification codes with unauthorized people.</li>
+            <li>Record accurate review notes and document decisions based on the information available. Report missing files, incorrect records, and suspected access problems to an administrator.</li>
+            <li>Case and document review actions in AmoraCare record workflow assessments; they do not constitute a final adoption order or guarantee placement.</li>
+            <li>Stop using case records when access expires or is revoked, or when a case is removed. Do not attempt to regain access through saved links or another account.</li>
+            <li>Sign out after each session on a shared device and protect any authorized working copies according to the organization&rsquo;s record-handling instructions.</li>
+        </ul>
+    </section>
+
     <section id="contact">
-        <{{ $termsHeadingTag }}>12. Questions and concerns</{{ $termsHeadingTag }}>
+        <{{ $termsHeadingTag }}>13. Questions and concerns</{{ $termsHeadingTag }}>
         <p>For questions about these terms, your account, or an authorized case workflow, contact AMOR Village Orphanage or the designated AmoraCare administrator using the official contact channel provided to you.</p>
         <p class="legal-source-note">These terms should be reviewed by the organization and qualified legal or privacy personnel before production deployment.</p>
     </section>

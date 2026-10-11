@@ -156,6 +156,11 @@
         line-height: 1.5;
     }
 
+    .case-search-control:not([hidden]) {
+        display: grid;
+        gap: 6px;
+    }
+
     .error-text {
         color: #b42318;
         background: #fff1f1;
@@ -312,7 +317,7 @@
                     <label for="child_id">
                         Child <span class="required">*</span>
                     </label>
-                    <div id="childSearchControl" hidden>
+                    <div id="childSearchControl" class="case-search-control" hidden>
                         <label for="childSearch">Search child by name or code</label>
                         <input type="search" id="childSearch" placeholder="Type a name or child code" autocomplete="off" aria-controls="child_id" aria-describedby="childSearchStatus">
                         <small id="childSearchStatus" role="status" aria-live="polite"></small>
@@ -387,6 +392,11 @@
                         Prospective Adoptive Parent
                         <span class="optional-label">Optional</span>
                     </label>
+                    <div id="parentSearchControl" class="case-search-control" hidden>
+                        <label for="parentSearch">Search parent by name or email</label>
+                        <input type="search" id="parentSearch" placeholder="Type a parent name or email" autocomplete="off" aria-controls="prospective_parent_id" aria-describedby="parentSearchStatus">
+                        <small id="parentSearchStatus" class="field-help" role="status" aria-live="polite"></small>
+                    </div>
                     <select id="prospective_parent_id" name="prospective_parent_id">
                         <option value="">Not assigned</option>
                         @foreach($prospectiveParents as $parent)

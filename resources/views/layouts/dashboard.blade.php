@@ -368,7 +368,7 @@
                     .trim()
                     .replace(/\s+/g, ' ')
                     .toLocaleLowerCase()
-                    .replace(/(^|[\s'-])\p{L}/gu, function (match) {
+                    .replace(/(^|[\s'’\-])\p{L}/gu, function (match) {
                         return match.toLocaleUpperCase();
                     });
             });

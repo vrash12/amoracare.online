@@ -29,8 +29,9 @@
             @csrf
 
             <div class="form-grid">
+                <p class="form-group full">Fields marked <span class="required-marker" aria-hidden="true">*</span> are required.</p>
                 <div class="form-group">
-                    <label for="role_id">Role</label>
+                    <label for="role_id">Role <span class="required-marker" aria-hidden="true">*</span></label>
                     <select
                         name="role_id"
                         id="role_id"
@@ -52,7 +53,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="status">Status</label>
+                    <label for="status">Status <span class="required-marker" aria-hidden="true">*</span></label>
                     <select
                         name="status"
                         id="status"
@@ -82,7 +83,7 @@
                 @include('admin.users._name-fields')
 
                 <div class="form-group">
-                    <label for="email">Email Address</label>
+                    <label for="email">Email Address <span class="required-marker" aria-hidden="true">*</span></label>
                     <input
                         type="email"
                         name="email"
@@ -119,7 +120,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="password">Password</label>
+                    <label for="password">Temporary Password <span class="required-marker" aria-hidden="true">*</span></label>
                     <input
                         type="password"
                         name="password"
@@ -137,7 +138,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="password_confirmation">Confirm Password</label>
+                    <label for="password_confirmation">Confirm Temporary Password <span class="required-marker" aria-hidden="true">*</span></label>
                     <input
                         type="password"
                         name="password_confirmation"

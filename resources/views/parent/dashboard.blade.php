@@ -149,19 +149,6 @@
         line-height: 1.5;
     }
 
-    .secure-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        border-radius: 999px;
-        background: var(--green-bg);
-        color: var(--green-text);
-        font-size: 12px;
-        font-weight: 900;
-        white-space: nowrap;
-    }
-
     .privacy-notice {
         display: flex;
         align-items: flex-start;
@@ -519,7 +506,7 @@
             padding: 18px;
         }
 
-        .secure-badge {
+        .dashboard-header > .btn {
             width: 100%;
             justify-content: center;
         }
@@ -567,10 +554,7 @@
             </p>
         </div>
 
-        <div class="secure-badge">
-            <i class="bi bi-shield-check"></i>
-            Secure Applicant Portal
-        </div>
+        <a href="{{ route('parent.account.security') }}" class="btn light">Change password</a>
     </section>
 
     <div class="privacy-notice">

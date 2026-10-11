@@ -16,42 +16,36 @@
             'icon' => 'bi-clock',
             'class' => 'is-pending',
             'description' => 'Upload the requested document when it is ready.',
-            'fallback' => '!',
         ],
         'submitted' => [
             'label' => 'Submitted',
             'icon' => 'bi-cloud-check',
             'class' => 'is-submitted',
             'description' => 'Your file was received and is waiting for review.',
-            'fallback' => '✓',
         ],
         'under_review' => [
             'label' => 'Under review',
             'icon' => 'bi-search',
             'class' => 'is-review',
             'description' => 'Authorized staff are currently reviewing this file.',
-            'fallback' => '⌕',
         ],
         'verified' => [
             'label' => 'Verified',
             'icon' => 'bi-patch-check',
             'class' => 'is-verified',
             'description' => 'This file was accepted. You may still replace it before final RACCO case approval; a replacement will require a new review.',
-            'fallback' => '✓',
         ],
         'rejected' => [
             'label' => 'Needs revision',
             'icon' => 'bi-exclamation-triangle',
             'class' => 'is-rejected',
             'description' => 'Review the remarks and upload a corrected file.',
-            'fallback' => '!',
         ],
         'expired' => [
             'label' => 'Expired',
             'icon' => 'bi-calendar-x',
             'class' => 'is-expired',
             'description' => 'Upload a renewed or updated copy of this document.',
-            'fallback' => '!',
         ],
     ];
 
@@ -1495,8 +1489,7 @@
                 <div class="docs-stat-top">
                     <div class="docs-stat-label">Needs action</div>
                     <div class="docs-stat-icon">
-                        <i class="bi bi-exclamation-circle"></i>
-                        <span class="docs-icon-fallback" aria-hidden="true">!</span>
+                        <x-document-status-icon status="pending" />
                     </div>
                 </div>
                 <div class="docs-stat-value">{{ $needsActionCount }}</div>
@@ -1507,8 +1500,7 @@
                 <div class="docs-stat-top">
                     <div class="docs-stat-label">In review</div>
                     <div class="docs-stat-icon">
-                        <i class="bi bi-hourglass-split"></i>
-                        <span class="docs-icon-fallback" aria-hidden="true">⌕</span>
+                        <x-document-status-icon status="under_review" />
                     </div>
                 </div>
                 <div class="docs-stat-value">{{ $waitingCount }}</div>
@@ -1519,7 +1511,7 @@
                 <div class="docs-stat-top">
                     <div class="docs-stat-label">Verified</div>
                     <div class="docs-stat-icon">
-                        <i class="bi bi-patch-check"></i>
+                        <x-document-status-icon status="verified" />
                     </div>
                 </div>
                 <div class="docs-stat-value">{{ $verifiedDocumentsCount }}</div>
@@ -1577,17 +1569,17 @@
                         </button>
 
                         <button type="button" class="docs-filter" data-filter="action">
-                            <i class="bi bi-exclamation-circle"></i>
+                            <x-document-status-icon status="pending" />
                             Needs action
                         </button>
 
                         <button type="button" class="docs-filter" data-filter="waiting">
-                            <i class="bi bi-hourglass-split"></i>
+                            <x-document-status-icon status="under_review" />
                             In review
                         </button>
 
                         <button type="button" class="docs-filter" data-filter="verified">
-                            <i class="bi bi-patch-check"></i>
+                            <x-document-status-icon status="verified" />
                             Verified
                         </button>
                     </div>
@@ -1629,7 +1621,7 @@
                         >
                             <div class="docs-card-main">
                                 <div class="docs-file-icon" aria-hidden="true">
-                                    <i class="bi {{ $meta['icon'] }}"></i>
+                                    <x-document-status-icon :status="$document->status" />
                                 </div>
 
                                 <div class="docs-card-copy">
@@ -1638,10 +1630,9 @@
                                             {{ $document->document_name }}
                                         </h3>
 
-                                <span class="docs-status {{ $meta['class'] }}">
-                                    <i class="bi {{ $meta['icon'] }}"></i>
-                                    <span class="docs-icon-fallback" aria-hidden="true">{{ $meta['fallback'] ?? '!' }}</span>
-                                    {{ $meta['label'] }}
+                                        <span class="docs-status {{ $meta['class'] }}">
+                                            <x-document-status-icon :status="$document->status" />
+                                            {{ $meta['label'] }}
                                         </span>
                                     </div>
 

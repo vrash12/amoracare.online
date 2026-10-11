@@ -1361,7 +1361,7 @@
                 <div class="app-stat-top">
                     <div class="app-stat-label">Needs action</div>
                     <div class="app-stat-icon">
-                        <i class="bi bi-exclamation-circle"></i>
+                        <x-document-status-icon status="pending" />
                     </div>
                 </div>
 
@@ -1376,7 +1376,7 @@
                 <div class="app-stat-top">
                     <div class="app-stat-label">In review</div>
                     <div class="app-stat-icon">
-                        <i class="bi bi-hourglass-split"></i>
+                        <x-document-status-icon status="under_review" />
                     </div>
                 </div>
 
@@ -1391,7 +1391,7 @@
                 <div class="app-stat-top">
                     <div class="app-stat-label">Verified</div>
                     <div class="app-stat-icon">
-                        <i class="bi bi-patch-check"></i>
+                        <x-document-status-icon status="verified" />
                     </div>
                 </div>
 
@@ -1791,7 +1791,7 @@
 
                             <article class="app-document {{ $meta['class'] }}">
                                 <div class="app-document-icon">
-                                    <i class="bi {{ $meta['icon'] }}"></i>
+                                    <x-document-status-icon :status="$document->status" />
                                 </div>
 
                                 <div class="app-document-copy">
@@ -1804,7 +1804,7 @@
                                 </div>
 
                                 <span class="app-document-status {{ $meta['class'] }}">
-                                    <i class="bi {{ $meta['icon'] }}"></i>
+                                    <x-document-status-icon :status="$document->status" />
                                     {{ $meta['label'] }}
                                 </span>
                             </article>

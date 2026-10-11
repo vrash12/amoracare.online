@@ -100,15 +100,16 @@ class AccountSetupTest extends TestCase
         $this->get(route("{$prefix}.test.protected"))->assertOk()->assertSee('Allowed');
     }
 
-    public function test_invalid_current_password_confirmation_and_password_reuse_are_rejected(): void
+    #[DataProvider('portals')]
+    public function test_invalid_current_password_confirmation_and_password_reuse_are_rejected(string $guard, string $prefix): void
     {
-        $user = $this->user('prospective_parent', ['must_change_password' => true]);
-        $this->actingAs($user, 'prospective_parent');
-        $this->put(route('parent.account.password'), $this->passwordInput(['current_password' => 'wrong']))
+        $user = $this->user($guard, ['must_change_password' => true]);
+        $this->actingAs($user, $guard);
+        $this->put(route("{$prefix}.account.password"), $this->passwordInput(['current_password' => 'wrong']))
             ->assertSessionHasErrors('current_password');
-        $this->put(route('parent.account.password'), $this->passwordInput(['password_confirmation' => 'mismatch']))
+        $this->put(route("{$prefix}.account.password"), $this->passwordInput(['password_confirmation' => 'mismatch']))
             ->assertSessionHasErrors('password');
-        $this->put(route('parent.account.password'), $this->passwordInput([
+        $this->put(route("{$prefix}.account.password"), $this->passwordInput([
             'password' => 'TemporaryPass123!',
             'password_confirmation' => 'TemporaryPass123!',
         ]))->assertSessionHasErrors('password');
@@ -117,20 +118,42 @@ class AccountSetupTest extends TestCase
         $this->assertTrue(Hash::check('TemporaryPass123!', $user->fresh()->password));
     }
 
-    public function test_missing_acceptance_and_outdated_terms_are_rejected(): void
+    #[DataProvider('portals')]
+    public function test_missing_acceptance_and_outdated_terms_are_rejected(string $guard, string $prefix): void
     {
-        $user = $this->user('prospective_parent');
-        $this->actingAs($user, 'prospective_parent');
-        $this->post(route('parent.account.terms.accept'), [
+        $user = $this->user($guard);
+        $this->actingAs($user, $guard);
+        $this->post(route("{$prefix}.account.terms.accept"), [
             'terms_version' => config('legal.terms_version'),
         ])->assertSessionHasErrors('terms_accepted');
-        $this->post(route('parent.account.terms.accept'), [
+        $this->post(route("{$prefix}.account.terms.accept"), [
             'terms_accepted' => '1',
             'terms_version' => 'outdated',
         ])->assertSessionHasErrors('terms_version');
 
         $this->assertNull($user->fresh()->terms_accepted_at);
-        $this->get(route('parent.test.protected'))->assertRedirect(route('parent.account.terms'));
+        $this->get(route("{$prefix}.test.protected"))->assertRedirect(route("{$prefix}.account.terms"));
+    }
+
+    #[DataProvider('portals')]
+    public function test_previous_terms_acceptance_requires_review_of_updated_terms(string $guard, string $prefix): void
+    {
+        $user = $this->user($guard, [
+            'terms_accepted_version' => 'previous-version',
+            'terms_accepted_at' => now()->subDay(),
+        ]);
+        $this->actingAs($user, $guard);
+        $this->get(route("{$prefix}.test.protected"))->assertRedirect(route("{$prefix}.account.terms"));
+        $this->get(route("{$prefix}.account.terms"))
+            ->assertOk()
+            ->assertSee('External reviewer responsibilities')
+            ->assertSee('temporary password');
+        $this->post(route("{$prefix}.account.terms.accept"), [
+            'terms_accepted' => '1',
+            'terms_version' => config('legal.terms_version'),
+        ])->assertRedirect(route("{$prefix}.dashboard"));
+        $this->assertTrue($user->fresh()->hasAcceptedCurrentTerms());
+        $this->get(route("{$prefix}.test.protected"))->assertOk();
     }
 
     public function test_accepting_terms_cannot_bypass_a_temporary_password(): void
@@ -182,10 +205,10 @@ class AccountSetupTest extends TestCase
         $parentRole = Role::create(['name' => 'Parent', 'slug' => 'prospective_parent']);
         $payload = [
             'role_id' => $parentRole->id,
-            'first_name' => 'New',
-            'middle_name' => 'Test',
-            'last_name' => 'Parent',
-            'name_extension' => '',
+            'first_name' => '  mary-jane  ',
+            'middle_name' => '  d’angelo ',
+            'last_name' => "o'NEIL",
+            'name_extension' => 'jr',
             'email' => 'new-parent@example.com',
             'status' => User::STATUS_ACTIVE,
             'password' => 'TemporaryPass123!',
@@ -197,16 +220,38 @@ class AccountSetupTest extends TestCase
         $this->assertTrue($parent->must_change_password);
         $this->assertFalse($parent->hasAcceptedCurrentTerms());
         $this->assertNull($parent->email_verified_at);
-        $this->assertSame('New', $parent->first_name);
-        $this->assertSame('Test', $parent->middle_name);
-        $this->assertSame('Parent', $parent->last_name);
-        $this->assertSame('New Test Parent', $parent->name);
+        $this->assertSame('Mary-Jane', $parent->first_name);
+        $this->assertSame('D’Angelo', $parent->middle_name);
+        $this->assertSame("O'Neil", $parent->last_name);
+        $this->assertSame('Jr.', $parent->name_extension);
+        $this->assertSame("Mary-Jane D’Angelo O'Neil Jr.", $parent->name);
 
         $parent->forceFill(['must_change_password' => false, 'remember_token' => 'old-token'])->save();
         $this->put(route('admin.users.update', $parent), $payload)
             ->assertSessionHasNoErrors()->assertRedirect(route('admin.users.index'));
         $this->assertTrue($parent->fresh()->must_change_password);
         $this->assertNull($parent->fresh()->remember_token);
+    }
+
+    public function test_admin_can_save_a_full_name_before_name_columns_are_migrated(): void
+    {
+        $admin = $this->user('admin', $this->acceptedTerms());
+        $parentRole = Role::create(['name' => 'Parent', 'slug' => 'prospective_parent']);
+        (require database_path('migrations/2026_09_26_000001_add_name_parts_to_users_table.php'))->down();
+
+        $this->actingAs($admin, 'admin')->post(route('admin.users.store'), [
+            'role_id' => $parentRole->id,
+            'first_name' => 'maria',
+            'middle_name' => '',
+            'last_name' => 'santos',
+            'name_extension' => '',
+            'email' => 'legacy-parent@example.com',
+            'status' => User::STATUS_ACTIVE,
+            'password' => 'TemporaryPass123!',
+            'password_confirmation' => 'TemporaryPass123!',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('admin.users.index'));
+
+        $this->assertSame('Maria Santos', User::where('email', 'legacy-parent@example.com')->firstOrFail()->name);
     }
 
     private function user(string $guard, array $attributes = []): User
