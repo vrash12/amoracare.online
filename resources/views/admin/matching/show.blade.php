@@ -92,7 +92,7 @@
             };
         };
 
-        $formatValue = function ($value) {
+        $formatValue = function ($value) use (&$formatValue) {
             if (is_bool($value)) {
                 return $value ? 'Yes' : 'No';
             }
@@ -102,7 +102,15 @@
             }
 
             if (is_array($value)) {
-                return json_encode($value, JSON_PRETTY_PRINT);
+                if ($value === []) {
+                    return 'None';
+                }
+
+                return collect($value)->map(function ($item, $key) use (&$formatValue) {
+                    $label = is_string($key) ? ucwords(str_replace('_', ' ', $key)).': ' : '';
+
+                    return $label.$formatValue($item);
+                })->implode(', ');
             }
 
             return $value;
@@ -659,6 +667,18 @@
             white-space: pre-wrap;
         }
 
+        .structured-section-heading {
+            grid-column: 1 / -1;
+            margin-top: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e5e7eb;
+            color: #7a2d14;
+            font-size: 12px;
+            font-weight: 850;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
         .match-card-footer {
             padding-top: 14px;
             border-top: 1px solid #f3f4f6;
@@ -671,6 +691,12 @@
 
         .match-card-footer small {
             color: #6b7280;
+        }
+
+        .match-card-footer .btn.danger {
+            background: #b91c1c;
+            border-color: #b91c1c;
+            color: #ffffff;
         }
 
         .empty-matching-state {
@@ -1086,6 +1112,28 @@
                                 ])
                                 ->all();
 
+                            if (array_key_exists('child_special_needs_categories', $structuredFields)) {
+                                $structuredFields['child_special_needs_categories'] = ($explanation['child_special_needs'] ?? $result->child?->is_special_needs)
+                                    ? (collect($structuredFields['child_special_needs_categories'] ?? [])
+                                        ->map(fn ($category) => \App\Models\Child::SPECIAL_NEEDS_CATEGORIES[$category] ?? $category)
+                                        ->all() ?: 'Not recorded')
+                                    : 'Not applicable';
+                            }
+
+                            $specialNeedsCategories = collect($result->child?->special_needs_categories ?? [])
+                                    ->map(fn (string $category) => \App\Models\Child::SPECIAL_NEEDS_CATEGORIES[$category] ?? $category)
+                                    ->values()
+                                    ->all();
+
+                            $childStructuredFields = [
+                                'School Name' => $result->child?->school_name ?? 'Not recorded',
+                                'Health Status' => $result->child?->health_status ?? 'Not recorded',
+                                'Background Summary' => $result->child?->background_summary ?? 'Not recorded',
+                                'Category if special needs' => $result->child?->is_special_needs
+                                    ? ($specialNeedsCategories ?: ['Not recorded'])
+                                    : ['Not applicable'],
+                            ];
+
                             $childScoreWidth = min(100, max(0, $result->child_score ?? 0));
                             $parentScoreWidth = min(100, max(0, $result->parent_score ?? 0));
                         @endphp
@@ -1279,7 +1327,7 @@
                                     {{ $reviewReminder }}
                                 </div>
 
-                                @if(!empty($structuredFields))
+                                @if(!empty($structuredFields) || !empty($childStructuredFields))
                                     <details class="match-details">
                                         <summary>
                                             <i class="bi bi-list-check"></i>
@@ -1287,6 +1335,17 @@
                                         </summary>
 
                                         <div class="structured-grid">
+                                            @if(!empty($childStructuredFields))
+                                                <div class="structured-section-heading">Child</div>
+                                                @foreach($childStructuredFields as $label => $value)
+                                                    <div class="structured-row">
+                                                        <strong>{{ $label }}</strong>
+                                                        <span>{{ is_array($value) ? implode(', ', $value) : $value }}</span>
+                                                    </div>
+                                                @endforeach
+                                            @endif
+
+                                            <div class="structured-section-heading">Matching and parent data</div>
                                             @foreach($structuredFields as $key => $value)
                                                 <div class="structured-row">
                                                     <strong>{{ ucwords(str_replace('_', ' ', $key)) }}</strong>
@@ -1302,7 +1361,18 @@
                                         Confirm eligibility, document completeness, and legal requirements before action.
                                     </small>
 
-                                    @if($result->status === 'recommended')
+                                    @if($result->status !== 'converted_to_case')
+                                        <form method="POST" action="{{ route('admin.matching.results.destroy', $result) }}"
+                                              onsubmit="return confirm('Delete this matching recommendation? You can run matching again to generate new recommendations.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn danger">
+                                                <i class="bi bi-trash"></i> Delete Recommendation
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    @if($result->status === 'recommended' && $result->prospectiveParent?->matchingProfile?->hasCompletedReadinessChecklist())
                                         <form
                                             method="POST"
                                             action="{{ route('admin.matching.create-case', $result) }}"
@@ -1315,6 +1385,8 @@
                                                 Create Adoption Case
                                             </button>
                                         </form>
+                                    @elseif($result->status === 'recommended')
+                                        <span>Parent readiness checklist requires staff confirmation before case creation.</span>
                                     @else
                                         <span class="btn light" style="cursor: default;">
                                             <i class="bi bi-check2-circle"></i>

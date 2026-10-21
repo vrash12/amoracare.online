@@ -1,10 +1,12 @@
 <?php
+
 // app/Http/Controllers/Parent/ParentApplicationController.php
 
 namespace App\Http\Controllers\Parent;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdoptionCase;
+use App\Support\AdoptionTimeline;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -20,14 +22,14 @@ class ParentApplicationController extends Controller
         $parentMatchingProfile = $user->matchingProfile;
 
         $adoptionCase = AdoptionCase::with([
-                'prospectiveParent.matchingProfile',
-                'assignedSocialWorker',
-                'documents' => function ($query) {
-                    $query->orderBy('requirement_scope')
-                        ->orderBy('document_name');
-                },
-                'notes.creator',
-            ])
+            'prospectiveParent.matchingProfile',
+            'assignedSocialWorker',
+            'documents' => function ($query) {
+                $query->orderBy('requirement_scope')
+                    ->orderBy('document_name');
+            },
+            'notes.creator',
+        ])
             ->where('prospective_parent_id', $user->id)
             ->latest()
             ->first();
@@ -66,7 +68,7 @@ class ParentApplicationController extends Controller
                 ->sortByDesc('created_at')
                 ->values();
 
-            $applicationTimeline = $this->buildApplicationTimeline($adoptionCase);
+            $applicationTimeline = AdoptionTimeline::forStatus($adoptionCase->status);
         }
 
         return view('parent.application.index', compact(
@@ -81,33 +83,5 @@ class ParentApplicationController extends Controller
             'documentProgressPercent',
             'applicationTimeline'
         ));
-    }
-
-    private function buildApplicationTimeline(AdoptionCase $adoptionCase)
-    {
-        $statuses = array_keys(AdoptionCase::STATUSES);
-        $currentIndex = array_search($adoptionCase->status, $statuses, true);
-
-        if ($currentIndex === false) {
-            $currentIndex = 0;
-        }
-
-        return collect(AdoptionCase::STATUSES)->map(function ($label, $status) use ($statuses, $currentIndex) {
-            $statusIndex = array_search($status, $statuses, true);
-
-            if ($statusIndex < $currentIndex) {
-                $state = 'completed';
-            } elseif ($statusIndex === $currentIndex) {
-                $state = 'current';
-            } else {
-                $state = 'upcoming';
-            }
-
-            return [
-                'status' => $status,
-                'label' => $label,
-                'state' => $state,
-            ];
-        })->values();
     }
 }

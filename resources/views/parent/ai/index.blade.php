@@ -1599,18 +1599,23 @@
                 }
 
                 const bulletMatch = line.match(/^[-*+]\s+(.+)/);
-                const numberMatch = line.match(/^\d+[.)]\s+(.+)/);
+                const numberMatch = line.match(/^(\d+)[.)]\s+(.+)/);
 
                 if (bulletMatch || numberMatch) {
                     const nextType = numberMatch ? "ol" : "ul";
 
                     if (listType !== nextType) {
                         closeList();
-                        html += nextType === "ol" ? "<ol>" : "<ul>";
+                        html += nextType === "ol"
+                            ? `<ol start="${Number(numberMatch[1])}">`
+                            : "<ul>";
                         listType = nextType;
                     }
 
-                    html += `<li>${formatInlineMarkdown((bulletMatch || numberMatch)[1])}</li>`;
+                    // Preserve source numbering even when descriptions or bullets split the list.
+                    html += numberMatch
+                        ? `<li value="${Number(numberMatch[1])}">${formatInlineMarkdown(numberMatch[2])}</li>`
+                        : `<li>${formatInlineMarkdown(bulletMatch[1])}</li>`;
                     return;
                 }
 

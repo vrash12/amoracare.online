@@ -65,6 +65,18 @@ class AdoptionCaseDocument extends Model
         return $this->belongsTo(User::class, 'uploaded_by');
     }
 
+    public function canBeUploadedByParent(): bool
+    {
+        $adoptionCase = $this->adoptionCase;
+
+        return $this->requirement_scope === 'parent'
+            && $this->status === 'pending'
+            && blank($this->file_path)
+            && $adoptionCase !== null
+            && $adoptionCase->racco_review_status !== 'approved'
+            && ! in_array($adoptionCase->status, ['finalized', 'closed', 'cancelled'], true);
+    }
+
     public function getStatusLabelAttribute(): string
     {
         return self::STATUSES[$this->status] ?? $this->status;

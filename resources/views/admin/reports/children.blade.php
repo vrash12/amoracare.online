@@ -95,7 +95,7 @@
         </div>
 
         <div style="margin-top: 16px;">
-            {{ $children->links() }}
+            {{ $children->links('pagination.amoracare') }}
         </div>
     </div>
 @endsection

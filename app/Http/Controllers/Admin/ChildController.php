@@ -16,7 +16,7 @@ class ChildController extends Controller
 {
     private function authorizeAdmin(): void
     {
-        if (!Auth::check() || !Auth::user()->isAdmin()) {
+        if (! Auth::check() || ! Auth::user()->isAdmin()) {
             abort(403, 'Only administrators can access child profile management.');
         }
     }
@@ -28,6 +28,17 @@ class ChildController extends Controller
         $search = $request->input('search');
         $caseStatus = $request->input('case_status');
         $eligibilityStatus = $request->input('adoption_eligibility_status');
+
+        $childSummary = [
+            'total' => Child::count(),
+            'ready_for_matching' => Child::where('case_status', 'available_for_adoption')
+                ->where('adoption_eligibility_status', 'eligible')
+                ->whereDoesntHave('adoptionCases', fn ($query) => $query->whereNotIn('status', ['finalized', 'closed', 'cancelled']))
+                ->count(),
+            'with_recommendation' => Child::whereHas('matchingResults')->count(),
+            'needs_attention' => Child::where(fn ($query) => $query->where('case_status', 'inactive')
+                ->orWhereIn('adoption_eligibility_status', ['not_eligible', 'pending_documents']))->count(),
+        ];
 
         $children = Child::with(['creator', 'updater'])
             ->when($search, function ($query) use ($search) {
@@ -52,9 +63,9 @@ class ChildController extends Controller
         $childIds = $children->getCollection()->pluck('id');
 
         $latestMatchingResults = AdoptionMatchingResult::with([
-                'run',
-                'prospectiveParent',
-            ])
+            'run',
+            'prospectiveParent',
+        ])
             ->whereIn('child_id', $childIds)
             ->latest()
             ->get()
@@ -66,6 +77,7 @@ class ChildController extends Controller
 
         return view('admin.children.index', compact(
             'children',
+            'childSummary',
             'search',
             'caseStatus',
             'eligibilityStatus',
@@ -169,7 +181,7 @@ class ChildController extends Controller
 
     private function validateChild(Request $request, ?Child $child = null): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'child_code' => [
                 'required',
                 'string',
@@ -191,11 +203,20 @@ class ChildController extends Controller
             'health_status' => ['nullable', 'string'],
             'educational_level' => ['nullable', 'string', 'max:150'],
             'school_name' => ['nullable', 'string', 'max:150'],
-            'is_special_needs' => ['nullable', 'boolean'],
+            'is_special_needs' => ['required', 'boolean'],
+            'special_needs_categories' => ['exclude_if:is_special_needs,0', 'nullable', 'array'],
+            'special_needs_categories.*' => ['exclude_if:is_special_needs,0', 'distinct', Rule::in(array_keys(Child::SPECIAL_NEEDS_CATEGORIES))],
             'background_summary' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'remove_photo' => ['nullable', 'boolean'],
         ]);
+
+        $validated['is_special_needs'] = $request->boolean('is_special_needs');
+        $validated['special_needs_categories'] = $validated['is_special_needs']
+            ? ($validated['special_needs_categories'] ?? [])
+            : [];
+
+        return $validated;
     }
 }

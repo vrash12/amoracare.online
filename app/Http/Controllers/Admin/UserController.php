@@ -78,7 +78,7 @@ class UserController extends Controller
     {
         $this->authorizeAdmin();
 
-        $roles = Role::orderBy('name')->get();
+        $roles = Role::where('slug', '!=', 'admin')->orderBy('name')->get();
 
         return view('admin.users.create', compact('roles'));
     }
@@ -89,7 +89,7 @@ class UserController extends Controller
         $nameParts = $this->validateName($request);
 
         $validated = $request->validate([
-            'role_id' => ['required', 'exists:roles,id'],
+            'role_id' => ['required', Rule::exists('roles', 'id')->whereNot('slug', 'admin')],
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
             'phone_number' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],
@@ -120,7 +120,9 @@ class UserController extends Controller
     {
         $this->authorizeAdmin();
 
-        $roles = Role::orderBy('name')->get();
+        $roles = $user->isAdmin()
+            ? Role::whereKey($user->role_id)->get()
+            : Role::where('slug', '!=', 'admin')->orderBy('name')->get();
 
         return view('admin.users.edit', compact('user', 'roles'));
     }
@@ -131,7 +133,9 @@ class UserController extends Controller
         $nameParts = $this->validateName($request);
 
         $validated = $request->validate([
-            'role_id' => ['required', 'exists:roles,id'],
+            'role_id' => ['required', $user->isAdmin()
+                ? Rule::exists('roles', 'id')->where('id', $user->role_id)
+                : Rule::exists('roles', 'id')->whereNot('slug', 'admin')],
             'email' => [
                 'required',
                 'email',

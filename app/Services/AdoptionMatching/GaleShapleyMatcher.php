@@ -11,8 +11,8 @@ class GaleShapleyMatcher
     /**
      * Child-proposing Gale-Shapley matching.
      *
-     * @param Collection<int, Child> $children
-     * @param Collection<int, User> $parents
+     * @param  Collection<int, Child>  $children
+     * @param  Collection<int, User>  $parents
      * @return array{
      *     matches: array<int, array>,
      *     unmatched_children: array<int>,
@@ -21,12 +21,17 @@ class GaleShapleyMatcher
      */
     public function match(Collection $children, Collection $parents): array
     {
+        $allParentIds = $parents->pluck('id')->all();
+        $parents = $parents->filter(fn (User $parent) => $parent->matchingProfile?->hasCompletedReadinessChecklist() === true
+        )->values();
+
         $childPreferences = [];
         $parentRankings = [];
         $scores = [];
 
         foreach ($children as $child) {
             $rankedParents = $parents
+                ->filter(fn (User $parent) => $parent->matchingProfile->acceptsChildSpecialNeeds($child))
                 ->map(function (User $parent) use ($child, &$scores) {
                     $childScore = $this->scoreParentForChild($child, $parent);
                     $parentScore = $this->scoreChildForParent($child, $parent);
@@ -54,6 +59,7 @@ class GaleShapleyMatcher
 
         foreach ($parents as $parent) {
             $rankedChildren = $children
+                ->filter(fn (Child $child) => $parent->matchingProfile->acceptsChildSpecialNeeds($child))
                 ->map(function (Child $child) use ($parent) {
                     return [
                         'child_id' => $child->id,
@@ -90,8 +96,9 @@ class GaleShapleyMatcher
             $parentId = $preferences[$proposalIndex];
             $nextProposalIndex[$childId] = $proposalIndex + 1;
 
-            if (!isset($parentMatches[$parentId])) {
+            if (! isset($parentMatches[$parentId])) {
                 $parentMatches[$parentId] = $childId;
+
                 continue;
             }
 
@@ -138,7 +145,7 @@ class GaleShapleyMatcher
         return [
             'matches' => $matches,
             'unmatched_children' => array_values(array_diff($children->pluck('id')->all(), $matchedChildIds)),
-            'unmatched_parents' => array_values(array_diff($parents->pluck('id')->all(), $matchedParentIds)),
+            'unmatched_parents' => array_values(array_diff($allParentIds, $matchedParentIds)),
         ];
     }
 
@@ -146,7 +153,7 @@ class GaleShapleyMatcher
     {
         $profile = $parent->matchingProfile;
 
-        if (!$profile) {
+        if (! $profile) {
             return -1000;
         }
 
@@ -164,10 +171,6 @@ class GaleShapleyMatcher
             $score += 20;
         }
 
-        if ($child->is_special_needs && !$profile->open_to_special_needs) {
-            $score -= 300;
-        }
-
         $activeCasesCount = $parent->adoptionCasesAsProspectiveParent
             ->whereNotIn('status', ['finalized', 'closed', 'cancelled'])
             ->count();
@@ -183,7 +186,7 @@ class GaleShapleyMatcher
     {
         $profile = $parent->matchingProfile;
 
-        if (!$profile) {
+        if (! $profile) {
             return -1000;
         }
 
@@ -230,87 +233,93 @@ class GaleShapleyMatcher
             $score += 15;
         }
 
-        if ($child->is_special_needs && !$profile->open_to_special_needs) {
-            $score -= 300;
-        }
-
         return $score;
     }
 
     private function calculateAge(Child $child): ?int
     {
-        if (!$child->date_of_birth) {
+        if (! $child->date_of_birth) {
             return null;
         }
 
         return $child->date_of_birth->age;
     }
 
-private function buildExplanation(Child $child, User $parent, int $childScore, int $parentScore): array
-{
-    $profile = $parent->matchingProfile;
-    $childAge = $this->calculateAge($child);
+    private function buildExplanation(Child $child, User $parent, int $childScore, int $parentScore): array
+    {
+        $profile = $parent->matchingProfile;
+        $childAge = $this->calculateAge($child);
 
-    $reasons = [];
+        $reasons = [];
 
-    if ($child->adoption_eligibility_status === 'eligible') {
-        $reasons[] = 'The child is marked as eligible for adoption.';
-    }
-
-    if ($child->case_status === 'available_for_adoption') {
-        $reasons[] = 'The child is currently available for adoption.';
-    }
-
-    if ($profile?->home_study_verified) {
-        $reasons[] = 'The prospective parent has a verified home study.';
-    }
-
-    if ($profile && ($profile->preferred_child_sex === 'any' || $profile->preferred_child_sex === $child->sex)) {
-        $reasons[] = 'The child matches the parent’s preferred child sex.';
-    }
-
-    if ($profile && $childAge !== null) {
-        $ageFits =
-            ($profile->min_child_age === null || $childAge >= $profile->min_child_age) &&
-            ($profile->max_child_age === null || $childAge <= $profile->max_child_age);
-
-        if ($ageFits) {
-            $reasons[] = 'The child’s age is within the parent’s preferred age range.';
+        if ($child->adoption_eligibility_status === 'eligible') {
+            $reasons[] = 'The child is marked as eligible for adoption.';
         }
+
+        if ($child->case_status === 'available_for_adoption') {
+            $reasons[] = 'The child is currently available for adoption.';
+        }
+
+        if ($profile?->home_study_verified) {
+            $reasons[] = 'The prospective parent has a verified home study.';
+        }
+
+        if ($profile && ($profile->preferred_child_sex === 'any' || $profile->preferred_child_sex === $child->sex)) {
+            $reasons[] = 'The child matches the parent’s preferred child sex.';
+        }
+
+        if ($profile && $childAge !== null) {
+            $ageFits =
+                ($profile->min_child_age === null || $childAge >= $profile->min_child_age) &&
+                ($profile->max_child_age === null || $childAge <= $profile->max_child_age);
+
+            if ($ageFits) {
+                $reasons[] = 'The child’s age is within the parent’s preferred age range.';
+            }
+        }
+
+        if ($child->is_special_needs && $profile?->open_to_special_needs) {
+            $reasons[] = 'The parent is open to caring for a child with special needs.';
+        }
+
+        if (! $child->is_special_needs) {
+            $reasons[] = 'The child is not marked as having special needs in the current record.';
+        }
+
+        return [
+            'child_score' => $childScore,
+            'parent_score' => $parentScore,
+
+            'rule_based_reasons' => $reasons,
+
+            'child_status' => $child->case_status,
+            'child_eligibility' => $child->adoption_eligibility_status,
+            'child_sex' => $child->sex,
+            'child_age' => $childAge,
+            'child_special_needs' => (bool) $child->is_special_needs,
+            'child_school_name' => $child->school_name,
+            'child_health_status' => $child->health_status,
+            'child_background_summary' => $child->background_summary,
+            'child_special_needs_categories' => collect($child->special_needs_categories ?? [])
+                ->map(fn (string $category): string => Child::SPECIAL_NEEDS_CATEGORIES[$category] ?? $category)
+                ->values()
+                ->all(),
+
+            'parent_preferred_child_sex' => $profile?->preferred_child_sex,
+            'parent_min_child_age' => $profile?->min_child_age,
+            'parent_max_child_age' => $profile?->max_child_age,
+            'parent_open_to_special_needs' => (bool) $profile?->open_to_special_needs,
+            'home_study_verified' => (bool) $profile?->home_study_verified,
+            'parent_physically_capable' => (bool) $profile?->physically_capable,
+            'parent_financially_capable' => (bool) $profile?->financially_capable,
+            'parent_willing_to_support_child' => (bool) $profile?->willing_to_support_child,
+
+            'financial_capacity_score' => $profile?->financial_capacity_score,
+            'housing_score' => $profile?->housing_score,
+            'parenting_capacity_score' => $profile?->parenting_capacity_score,
+
+            'ai_summary' => null,
+            'review_reminder' => 'This is only a system-generated recommendation. Final review and approval must still be done by authorized staff, social worker, and RACCO when applicable.',
+        ];
     }
-
-    if ($child->is_special_needs && $profile?->open_to_special_needs) {
-        $reasons[] = 'The parent is open to caring for a child with special needs.';
-    }
-
-    if (!$child->is_special_needs) {
-        $reasons[] = 'The child is not marked as having special needs in the current record.';
-    }
-
-    return [
-        'child_score' => $childScore,
-        'parent_score' => $parentScore,
-
-        'rule_based_reasons' => $reasons,
-
-        'child_status' => $child->case_status,
-        'child_eligibility' => $child->adoption_eligibility_status,
-        'child_sex' => $child->sex,
-        'child_age' => $childAge,
-        'child_special_needs' => (bool) $child->is_special_needs,
-
-        'parent_preferred_child_sex' => $profile?->preferred_child_sex,
-        'parent_min_child_age' => $profile?->min_child_age,
-        'parent_max_child_age' => $profile?->max_child_age,
-        'parent_open_to_special_needs' => (bool) $profile?->open_to_special_needs,
-        'home_study_verified' => (bool) $profile?->home_study_verified,
-
-        'financial_capacity_score' => $profile?->financial_capacity_score,
-        'housing_score' => $profile?->housing_score,
-        'parenting_capacity_score' => $profile?->parenting_capacity_score,
-
-        'ai_summary' => null,
-        'review_reminder' => 'This is only a system-generated recommendation. Final review and approval must still be done by authorized staff, social worker, and RACCO when applicable.',
-    ];
-}
 }

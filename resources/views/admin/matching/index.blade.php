@@ -52,7 +52,7 @@
         <div class="card">
             <div class="card-title">Ready Parent Profiles</div>
             <div class="card-value">{{ $activeParentsWithProfilesCount }}</div>
-            <small>Active parents with matching profiles and no active case</small>
+            <small>Active parents with all three readiness requirements confirmed and no active case</small>
         </div>
 
         <div class="card">
@@ -106,7 +106,7 @@
         <div class="notice">
             Matching cannot run yet. Make sure there is at least one child marked as
             <strong>Eligible</strong> and <strong>Available for Adoption</strong>, and at least one active prospective
-            parent with a completed matching profile.
+            parent with a matching profile and all three readiness requirements confirmed.
         </div>
     @endif
 
@@ -137,7 +137,7 @@
                 <div style="font-size: 28px; font-weight: 800; color: #2563eb;">2</div>
                 <strong>Filter Ready Parents</strong>
                 <p style="margin-bottom: 0;">
-                    Only active prospective parents with matching profiles are included.
+                    Only active prospective parents with all three readiness checklist items confirmed and no active case are included.
                 </p>
             </div>
 

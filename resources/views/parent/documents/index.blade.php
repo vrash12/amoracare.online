@@ -4,12 +4,6 @@
 @php
     $safeProgress = max(0, min(100, (int) $documentProgressPercent));
 
-    $documentUploadsLocked = $adoptionCase
-        && (
-            $adoptionCase->racco_review_status === 'approved'
-            || in_array($adoptionCase->status, ['finalized', 'closed', 'cancelled'], true)
-        );
-
     $statusMeta = [
         'pending' => [
             'label' => 'Not submitted',
@@ -33,19 +27,19 @@
             'label' => 'Verified',
             'icon' => 'bi-patch-check',
             'class' => 'is-verified',
-            'description' => 'This file was accepted. You may still replace it before final RACCO case approval; a replacement will require a new review.',
+            'description' => 'This file was accepted. Contact authorized AmoraCare staff if a correction is needed.',
         ],
         'rejected' => [
             'label' => 'Needs revision',
             'icon' => 'bi-exclamation-triangle',
             'class' => 'is-rejected',
-            'description' => 'Review the remarks and upload a corrected file.',
+            'description' => 'Review the remarks and contact authorized AmoraCare staff about the required correction.',
         ],
         'expired' => [
             'label' => 'Expired',
             'icon' => 'bi-calendar-x',
             'class' => 'is-expired',
-            'description' => 'Upload a renewed or updated copy of this document.',
+            'description' => 'Contact authorized AmoraCare staff about providing a renewed or updated copy.',
         ],
     ];
 
@@ -1515,7 +1509,7 @@
                     </div>
                 </div>
                 <div class="docs-stat-value">{{ $verifiedDocumentsCount }}</div>
-                <div class="docs-stat-help">Accepted files; replacements require another review</div>
+                <div class="docs-stat-help">Files accepted by authorized staff</div>
             </article>
         </section>
 
@@ -1525,8 +1519,8 @@
                     <div>
                         <h2>Official document checklist</h2>
                         <p>
-                            Search or filter your checklist. You may replace an uploaded file before final RACCO
-                            case approval; the replacement returns to <strong>Submitted</strong> status.
+                            Search or filter your checklist. Submitted files cannot be replaced from your account.
+                            Contact authorized AmoraCare staff if a correction is needed.
                         </p>
                     </div>
 
@@ -1681,17 +1675,16 @@
                                         </a>
                                     @endif
 
-                                    @if(! $documentUploadsLocked && $document->status !== 'not_required')
+                                    @if($document->canBeUploadedByParent())
                                         <button
                                             type="button"
                                             class="docs-btn {{ $needsAction ? 'is-primary' : '' }}"
                                             data-upload-open
                                             data-upload-action="{{ route('parent.documents.upload', $document) }}"
                                             data-document-name="{{ $document->document_name }}"
-                                            data-has-file="{{ $document->file_path ? '1' : '0' }}"
                                         >
-                                            <i class="bi {{ $document->file_path ? 'bi-arrow-repeat' : 'bi-cloud-arrow-up' }}"></i>
-                                            {{ $document->file_path ? 'Replace' : 'Upload' }}
+                                            <i class="bi bi-cloud-arrow-up"></i>
+                                            Upload
                                         </button>
                                     @endif
                                 </div>
@@ -2242,12 +2235,8 @@ document.addEventListener("DOMContentLoaded", function () {
         const documentName =
             button.dataset.documentName || "Selected document";
 
-        const hasExistingFile = button.dataset.hasFile === "1";
-
         if (uploadTitle) {
-            uploadTitle.textContent = hasExistingFile
-                ? "Replace document"
-                : "Upload document";
+            uploadTitle.textContent = "Upload document";
         }
 
         if (uploadDocumentName) {
@@ -2255,9 +2244,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (uploadSubmitText) {
-            uploadSubmitText.textContent = hasExistingFile
-                ? "Replace file"
-                : "Upload file";
+            uploadSubmitText.textContent = "Upload file";
         }
 
         modal.hidden = false;

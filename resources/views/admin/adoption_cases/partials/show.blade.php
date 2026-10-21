@@ -180,7 +180,7 @@
                     </div>
 
                     <small>
-                        {{ $note->created_at?->format('M d, Y h:i A') }}
+                        {{ $note->created_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') }}
                         by {{ $note->creator?->name ?? 'N/A' }}
                     </small>
                 </div>

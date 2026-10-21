@@ -141,6 +141,8 @@ Route::middleware(['auth:admin,web', 'role:admin'])
         Route::resource('children', ChildController::class);
         Route::post('/matching/results/{result}/create-case', [AdoptionMatchingController::class, 'createCase'])
             ->name('matching.create-case');
+        Route::delete('/matching/results/{result}', [AdoptionMatchingController::class, 'destroyResult'])
+            ->name('matching.results.destroy');
         Route::resource('adoption-cases', AdoptionCaseController::class);
         Route::post('/adoption-cases/{adoptionCase}/notes', [AdoptionCaseController::class, 'storeNote'])
             ->name('adoption-cases.notes.store');

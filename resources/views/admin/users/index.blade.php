@@ -616,7 +616,7 @@
                                 </td>
 
                                 <td>
-                                    {{ $user->last_login_at?->format('M d, Y h:i A') ?? 'Never' }}
+                                    {{ $user->last_login_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') ?? 'Never' }}
 
                                     @if($user->status === 'active' && $user->inactivityDeadline())
                                         <div class="muted">

@@ -119,18 +119,18 @@
 
                     <div class="parents-info-item">
                         <span>Last Login</span>
-                        <strong>{{ $parent->last_login_at?->format('M d, Y h:i A') ?? 'No login recorded' }}</strong>
+                        <strong>{{ $parent->last_login_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') ?? 'No login recorded' }}</strong>
                     </div>
 
                     <div class="parents-info-item">
                         <span>Account Created</span>
-                        <strong>{{ $parent->created_at?->format('M d, Y h:i A') ?? 'N/A' }}</strong>
+                        <strong>{{ $parent->created_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') ?? 'N/A' }}</strong>
                     </div>
                 </div>
             </div>
 
             <div class="panel">
-                <h2>Matching Profile</h2>
+                <h2>Matching Preference &amp; Requirements</h2>
 
                 @if($profile)
                     <div class="parents-info-list">
@@ -158,6 +158,17 @@
                             <span>Matching Notes</span>
                             <strong>{{ $profile->matching_notes ?? 'No notes recorded' }}</strong>
                         </div>
+                    </div>
+
+                    <h3>Parent Readiness Checklist</h3>
+                    <p class="muted">{{ $profile->hasCompletedReadinessChecklist() ? 'All three requirements are confirmed.' : 'Staff must confirm all three requirements before matching.' }}</p>
+                    <div class="parents-info-list">
+                        @foreach(\App\Models\ParentMatchingProfile::READINESS_REQUIREMENTS as $field => $label)
+                            <div class="parents-info-item">
+                                <span>{{ $label }}</span>
+                                <strong>{{ $profile->{$field} ? 'Confirmed' : 'Not confirmed' }}</strong>
+                            </div>
+                        @endforeach
                     </div>
                 @else
                     <div class="empty-state">
@@ -270,7 +281,7 @@
                             <tr>
                                 <td>
                                     <strong>{{ $result->run?->run_code ?? 'N/A' }}</strong>
-                                    <div class="muted">{{ $result->created_at?->format('M d, Y h:i A') }}</div>
+                                    <div class="muted">{{ $result->created_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') }}</div>
                                 </td>
 
                                 <td>

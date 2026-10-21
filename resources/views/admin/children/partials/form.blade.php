@@ -1,5 +1,7 @@
 @php
     $child = $child ?? null;
+    $specialNeedsStatus = old('is_special_needs', $child ? (int) $child->is_special_needs : null);
+    $hasSpecialNeeds = (string) $specialNeedsStatus === '1';
 @endphp
 
 <div class="child-form">
@@ -313,24 +315,42 @@
                 @enderror
             </div>
 
-            <div class="form-field checkbox-field">
-                <input type="hidden" name="is_special_needs" value="0">
-
-                <label class="checkbox-row">
-                    <input
-                        type="checkbox"
-                        name="is_special_needs"
-                        value="1"
-                        @checked(old('is_special_needs', $child?->is_special_needs))
-                    >
-
-                    <span>Child has special needs</span>
-                </label>
+            <div class="form-field full">
+                <label id="special_needs_status_label">Special-needs Status <span class="required">*</span></label>
+                <div role="radiogroup" aria-labelledby="special_needs_status_label" data-child-special-needs
+                     style="display:grid;gap:8px;margin-top:8px;">
+                    <label class="checkbox-row">
+                        <input type="radio" name="is_special_needs" value="0" required
+                               @checked((string) $specialNeedsStatus === '0')>
+                        <span>No special needs</span>
+                    </label>
+                    <label class="checkbox-row">
+                        <input type="radio" name="is_special_needs" value="1" required @checked($hasSpecialNeeds)>
+                        <span>Child has special needs</span>
+                    </label>
+                </div>
 
                 @error('is_special_needs')
                     <div class="error-text">{{ $message }}</div>
                 @enderror
             </div>
+
+            <fieldset class="form-field full" data-special-needs-categories
+                      style="border:0;padding:0;margin:0;min-width:0;" @disabled(! $hasSpecialNeeds) @if(! $hasSpecialNeeds) hidden @endif>
+                <legend style="font-weight:600;">Special-needs Category</legend>
+                <small class="muted">Select only categories supported by the authorized child record.</small>
+                <div class="checkbox-group" style="display:grid;gap:8px;margin-top:8px;">
+                    @foreach(\App\Models\Child::SPECIAL_NEEDS_CATEGORIES as $value => $label)
+                        <label class="checkbox-row">
+                            <input type="checkbox" name="special_needs_categories[]" value="{{ $value }}"
+                                   @checked(in_array($value, old('special_needs_categories', $child?->special_needs_categories ?? []), true))>
+                            <span>{{ $label }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('special_needs_categories')<div class="error-text">{{ $message }}</div>@enderror
+                @error('special_needs_categories.*')<div class="error-text">{{ $message }}</div>@enderror
+            </fieldset>
         </div>
     </div>
 
@@ -443,3 +463,26 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-child-special-needs]').forEach(function (statusGroup) {
+            const categories = statusGroup.closest('form').querySelector('[data-special-needs-categories]');
+
+            function updateSpecialNeedsCategories() {
+                const hasSpecialNeeds = statusGroup.querySelector('input[value="1"]').checked;
+                categories.hidden = !hasSpecialNeeds;
+                categories.disabled = !hasSpecialNeeds;
+
+                if (!hasSpecialNeeds) {
+                    categories.querySelectorAll('input[type="checkbox"]').forEach(function (input) {
+                        input.checked = false;
+                    });
+                }
+            }
+
+            statusGroup.addEventListener('change', updateSpecialNeedsCategories);
+            updateSpecialNeedsCategories();
+        });
+    });
+</script>

@@ -23,6 +23,7 @@
                             <option value="{{ $role->id }}" @selected((string) old('role_id', $user->role_id) === (string) $role->id)>{{ $role->name }}</option>
                         @endforeach
                     </select>
+                    <small style="color:#667085;">{{ $user->isAdmin() ? 'The existing administrator role is retained.' : 'The administrator role cannot be assigned to another account.' }}</small>
                     @error('role_id')<small class="form-error">{{ $message }}</small>@enderror
                 </div>
 

@@ -33,10 +33,15 @@
             'icon' => 'bi-house-heart',
             'message' => 'Your case is in a placement or post-placement supervision stage.',
         ],
-        'finalized', 'closed' => [
+        'finalized' => [
             'class' => 'is-green',
             'icon' => 'bi-patch-check',
-            'message' => 'This case has reached a completed or closed workflow stage.',
+            'message' => 'Your application workflow is completed.',
+        ],
+        'closed' => [
+            'class' => 'is-neutral',
+            'icon' => 'bi-folder-check',
+            'message' => 'This case is closed. Contact authorized staff for confirmation of its outcome.',
         ],
         'cancelled', 'rejected' => [
             'class' => 'is-red',
@@ -100,15 +105,7 @@
     $currentTimelineStep = $applicationTimeline
         ->first(fn ($step) => ($step['state'] ?? null) === 'current');
 
-    $completedTimelineCount = $applicationTimeline
-        ->filter(fn ($step) => ($step['state'] ?? null) === 'completed')
-        ->count();
-
-    $timelineCount = max(1, $applicationTimeline->count());
-
-    $timelineProgress = $applicationTimeline->count() > 0
-        ? (int) round((($completedTimelineCount + ($currentTimelineStep ? 0.5 : 0)) / $timelineCount) * 100)
-        : 0;
+    $timelineProgress = \App\Support\AdoptionTimeline::progress($applicationTimeline);
 
     $financialScore = max(0, min(100, (int) ($parentMatchingProfile?->financial_capacity_score ?? 0)));
     $housingScore = max(0, min(100, (int) ($parentMatchingProfile?->housing_score ?? 0)));
@@ -1417,8 +1414,8 @@
                     </strong>
 
                     <p>
-                        Review pending, rejected, or expired requirements and upload the correct files
-                        from your document center.
+                        Upload pending requirements from your document center. For rejected or expired files,
+                        review the remarks and contact authorized AmoraCare staff.
                     </p>
                 </div>
 
@@ -1655,22 +1652,23 @@
                     <div>
                         <h2>Application timeline</h2>
                         <p>
-                            A simplified view of completed, current, and upcoming workflow stages.
+                            Progress follows the recorded workflow stage. It does not measure elapsed time or government approval.
                         </p>
                     </div>
 
                     <span class="app-badge">
                         <i class="bi bi-signpost"></i>
-                        {{ $currentTimelineStep['label'] ?? 'Current stage unavailable' }}
+                        {{ $currentTimelineStep['label'] ?? ($adoptionCase ? $caseStatusLabel : 'Current stage unavailable') }}
                     </span>
                 </div>
 
                 <div class="app-timeline-progress">
                     <div class="app-progress-top">
-                        <span>Estimated workflow position</span>
-                        <strong>{{ $timelineProgress }}%</strong>
+                        <span>Workflow stage progress</span>
+                        <strong>{{ $timelineProgress !== null ? $timelineProgress.'%' : 'Not applicable' }}</strong>
                     </div>
 
+                    @if($timelineProgress !== null)
                     <div
                         class="app-progress-track"
                         role="progressbar"
@@ -1684,6 +1682,9 @@
                             style="width: {{ $timelineProgress }}%;"
                         ></div>
                     </div>
+                    @else
+                        <p>No completion percentage is assigned to a closed, cancelled, or unmapped case.</p>
+                    @endif
                 </div>
 
                 <div class="app-timeline">
@@ -1694,12 +1695,14 @@
                             $stepIcon = match ($stepState) {
                                 'completed' => 'bi-check-lg',
                                 'current' => 'bi-record-circle',
+                                'stopped' => 'bi-stop-circle',
                                 default => 'bi-circle',
                             };
 
                             $stepDescription = match ($stepState) {
                                 'completed' => 'Completed workflow stage',
                                 'current' => 'Your application is currently at this stage',
+                                'stopped' => 'This case is no longer progressing. Contact authorized staff about its outcome.',
                                 default => 'Upcoming workflow stage',
                             };
                         @endphp
@@ -1715,7 +1718,7 @@
                             </div>
 
                             <span class="app-state-badge">
-                                {{ ucfirst($stepState) }}
+                                {{ $stepState === 'stopped' ? $step['label'] : ucfirst($stepState) }}
                             </span>
                         </article>
                     @empty
@@ -1742,8 +1745,8 @@
                     <div>
                         <h2>Required documents</h2>
                         <p>
-                            A summary of your parent-side checklist. Uploads and replacements are managed
-                            in the document center.
+                            A summary of your parent-side checklist. Upload pending requirements in the document
+                            center and contact authorized staff about corrections to submitted files.
                         </p>
                     </div>
 

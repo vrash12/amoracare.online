@@ -5,7 +5,7 @@
         <div class="panel-header-row">
             <div>
                 <h2>Create User Account</h2>
-                <p>Add a new user and assign a system role.</p>
+                <p>Create a parent or reviewer account. Additional administrator accounts cannot be created.</p>
             </div>
 
             <a href="{{ route('admin.users.index') }}" class="btn light">

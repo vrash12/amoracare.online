@@ -62,7 +62,7 @@ class AdoptionCase extends Model
         'pre_placement' => 'Pre-Placement',
         'placement_supervision' => 'Placement Supervision',
         'court_process' => 'Court / Administrative Petition Process',
-        'finalized' => 'Finalized',
+        'finalized' => 'Completed',
         'closed' => 'Closed',
         'cancelled' => 'Cancelled',
     ];

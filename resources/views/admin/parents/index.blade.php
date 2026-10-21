@@ -59,7 +59,7 @@
             </div>
 
             <div class="parents-stat-card">
-                <div class="parents-stat-label">With Matching Profile</div>
+                <div class="parents-stat-label">With Matching Preference &amp; Requirements</div>
                 <div class="parents-stat-value">{{ $withProfileCount }}</div>
                 <div class="parents-stat-help">Ready for matching evaluation</div>
             </div>
@@ -193,7 +193,7 @@
                                             @endif
                                         </div>
                                     @else
-                                        <span class="parents-badge badge-yellow">No Matching Profile</span>
+                                        <span class="parents-badge badge-yellow">No Matching Preference &amp; Requirements</span>
                                     @endif
                                 </td>
 

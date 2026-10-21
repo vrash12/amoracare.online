@@ -48,7 +48,7 @@ class AdoptionMatchingController extends Controller
                 $query->where('slug', 'prospective_parent');
             })
             ->where('status', 'active')
-            ->whereHas('matchingProfile')
+            ->whereHas('matchingProfile', fn ($query) => $query->readyForMatching())
             ->whereDoesntHave('adoptionCasesAsProspectiveParent', function ($query) {
                 $query->whereNotIn('status', ['finalized', 'closed', 'cancelled']);
             })
@@ -105,7 +105,7 @@ public function run(
             $query->where('slug', 'prospective_parent');
         })
         ->where('status', 'active')
-        ->whereHas('matchingProfile')
+        ->whereHas('matchingProfile', fn ($query) => $query->readyForMatching())
         ->whereDoesntHave(
             'adoptionCasesAsProspectiveParent',
             function ($query) {
@@ -128,7 +128,7 @@ public function run(
     if ($parents->isEmpty()) {
         return back()->with(
             'error',
-            'No active prospective parents with matching profiles are available.'
+            'No active prospective parents have all three readiness requirements confirmed and no active case.'
         );
     }
 
@@ -226,6 +226,22 @@ public function run(
         ]);
     }
 
+    public function destroyResult(AdoptionMatchingResult $result): RedirectResponse
+    {
+        $this->authorizeAdmin();
+
+        $runId = $result->adoption_matching_run_id;
+        if ($result->status === 'converted_to_case') {
+            return redirect()->route('admin.matching.show', $runId)
+                ->with('error', 'This recommendation has already been converted into an adoption case and cannot be deleted.');
+        }
+
+        $result->delete();
+
+        return redirect()->route('admin.matching.show', $runId)
+            ->with('success', 'Matching recommendation deleted. Run matching again to generate new recommendations.');
+    }
+
     public function createCase(
         AdoptionMatchingResult $result,
         ExternalReviewerAccessService $reviewerAccessService
@@ -235,6 +251,15 @@ public function run(
 
         if ($result->status !== 'recommended') {
             return back()->with('error', 'Only recommended matches can be converted into adoption cases.');
+        }
+
+        $result->load(['prospectiveParent.matchingProfile', 'child']);
+        if (! $result->prospectiveParent?->matchingProfile?->hasCompletedReadinessChecklist()) {
+            return back()->with('error', 'Confirm all three parent readiness requirements before creating an adoption case from this recommendation.');
+        }
+
+        if (! $result->child || ! $result->prospectiveParent->matchingProfile->acceptsChildSpecialNeeds($result->child)) {
+            return back()->with('error', 'This recommendation no longer matches the parent’s special-needs preference. Update the profiles and run matching again.');
         }
 
         DB::transaction(function () use ($result, $reviewerAccessService) {

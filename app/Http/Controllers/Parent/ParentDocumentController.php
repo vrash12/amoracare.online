@@ -9,6 +9,7 @@ use App\Services\AdoptionDocumentStorageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -69,10 +70,8 @@ class ParentDocumentController extends Controller
     {
         $this->authorizeParentDocument($document);
 
-        if ($this->documentReplacementIsLocked($document)) {
-            return redirect()
-                ->route('parent.documents.index')
-                ->with('error', 'Documents can no longer be replaced because this case has already been approved or closed.');
+        if (! $document->canBeUploadedByParent()) {
+            return $this->uploadNotAllowed();
         }
 
         $validated = $request->validate([
@@ -85,41 +84,53 @@ class ParentDocumentController extends Controller
         ]);
 
         $file = $validated['file'];
-        $oldPath = $document->file_path;
-        $isReplacement = filled($oldPath);
-        $path = $file->store('adoption/parent-documents', 'local');
+        $path = null;
 
         try {
-            $document->update([
-                'status' => 'submitted',
-                'file_path' => $path,
-                'original_filename' => $file->getClientOriginalName(),
-                'mime_type' => $file->getMimeType(),
-                'file_size' => $file->getSize(),
-                'remarks' => null,
-                'uploaded_by' => Auth::id(),
-                'verified_by' => null,
-                'verified_at' => null,
-                'updated_by' => Auth::id(),
-            ]);
+            $uploaded = DB::transaction(function () use ($document, $file, &$path): bool {
+                $lockedDocument = AdoptionCaseDocument::query()
+                    ->lockForUpdate()
+                    ->findOrFail($document->id);
+
+                $this->authorizeParentDocument($lockedDocument);
+
+                // Recheck after locking so simultaneous uploads cannot replace the first submission.
+                if (! $lockedDocument->canBeUploadedByParent()) {
+                    return false;
+                }
+
+                $path = $file->store('adoption/parent-documents', 'local');
+
+                $lockedDocument->update([
+                    'status' => 'submitted',
+                    'file_path' => $path,
+                    'original_filename' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'remarks' => null,
+                    'uploaded_by' => Auth::id(),
+                    'verified_by' => null,
+                    'verified_at' => null,
+                    'updated_by' => Auth::id(),
+                ]);
+
+                return true;
+            });
         } catch (\Throwable $exception) {
-            Storage::disk('local')->delete($path);
+            if ($path !== null) {
+                Storage::disk('local')->delete($path);
+            }
 
             throw $exception;
         }
 
-        if ($oldPath && $oldPath !== $path) {
-            Storage::disk('local')->delete($oldPath);
+        if (! $uploaded) {
+            return $this->uploadNotAllowed();
         }
 
         return redirect()
             ->route('parent.documents.index')
-            ->with(
-                'success',
-                $isReplacement
-                    ? 'Document replaced successfully and returned to Submitted status for a new review.'
-                    : 'Document uploaded successfully. Please wait for staff verification.'
-            );
+            ->with('success', 'Document uploaded successfully. Please wait for staff verification.');
     }
 
     public function download(
@@ -131,7 +142,7 @@ class ParentDocumentController extends Controller
         if (! $documentStorage->exists($document->file_path)) {
             return redirect()
                 ->route('parent.documents.index')
-                ->with('error', 'The uploaded file is missing or no longer available. Please upload the document again.');
+                ->with('error', 'The uploaded file is missing or no longer available. Please contact authorized AmoraCare staff for assistance.');
         }
 
         return $documentStorage->download(
@@ -155,12 +166,10 @@ class ParentDocumentController extends Controller
         }
     }
 
-    private function documentReplacementIsLocked(AdoptionCaseDocument $document): bool
+    private function uploadNotAllowed(): RedirectResponse
     {
-        $adoptionCase = $document->adoptionCase;
-
-        return $document->status === 'not_required'
-            || $adoptionCase?->racco_review_status === 'approved'
-            || in_array($adoptionCase?->status, ['finalized', 'closed', 'cancelled'], true);
+        return redirect()
+            ->route('parent.documents.index')
+            ->with('error', 'Only pending documents without a submitted file can be uploaded to an open case. Submitted documents cannot be replaced. Please contact authorized AmoraCare staff if a correction is needed.');
     }
 }

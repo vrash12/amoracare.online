@@ -25,17 +25,17 @@
         </div>
         <div class="card">
             <div class="card-title">Created</div>
-            <div class="card-value" style="font-size: 18px;">{{ $user->created_at?->format('M d, Y h:i A') ?? 'N/A' }}</div>
+            <div class="card-value" style="font-size: 18px;">{{ $user->created_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') ?? 'N/A' }}</div>
         </div>
         <div class="card">
             <div class="card-title">Last Login</div>
-            <div class="card-value" style="font-size: 18px;">{{ $user->last_login_at?->format('M d, Y h:i A') ?? 'Never' }}</div>
+            <div class="card-value" style="font-size: 18px;">{{ $user->last_login_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') ?? 'Never' }}</div>
         </div>
         <div class="card">
             <div class="card-title">Automatic Inactivity</div>
             <div class="card-value" style="font-size: 18px;">
                 @if($user->status === 'active' && $user->inactivityDeadline())
-                    {{ $user->inactivityDeadline()->format('M d, Y h:i A') }}
+                    {{ $user->inactivityDeadline()->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') }}
                 @elseif($user->status === 'pending')
                     Starts after activation
                 @else
@@ -46,7 +46,7 @@
         <div class="card">
             <div class="card-title">Email Verification</div>
             <div class="card-value" style="font-size: 18px;">
-                {{ $user->email_verified_at?->format('M d, Y h:i A') ?? 'Verification required' }}
+                {{ $user->email_verified_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') ?? 'Verification required' }}
             </div>
         </div>
     </div>

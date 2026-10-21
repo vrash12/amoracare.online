@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AdoptionMatchingResult extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'adoption_matching_run_id',
         'child_id',

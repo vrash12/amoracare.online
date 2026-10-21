@@ -228,7 +228,8 @@ class ParentAiGuidancePrivacyTest extends TestCase
         $history = $this->app['session.store']->get($this->historyKey($parent));
 
         $this->assertSame('Can I replace my submitted document with a corrected file?', $history[0]['content']);
-        $this->assertStringContainsString('select Replace', $history[1]['content']);
+        $this->assertStringContainsString('parents cannot replace it from their account', $history[1]['content']);
+        $this->assertStringContainsString('Contact authorized AmoraCare staff', $history[1]['content']);
     }
 
     public function test_personal_application_status_question_is_deferred_to_context_aware_ai(): void

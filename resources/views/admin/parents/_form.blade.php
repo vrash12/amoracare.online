@@ -127,7 +127,7 @@
     </div>
 
     <div class="parents-form-section">
-        <h3>Matching Preferences</h3>
+        <h3>Matching Preference &amp; Requirements</h3>
 
         <div class="parents-field">
             <label for="preferred_child_sex">Preferred Child Sex</label>
@@ -209,6 +209,23 @@
             >
         </div>
     </div>
+</div>
+
+<br>
+
+<div class="parents-form-section">
+    <h3>Parent Readiness Checklist</h3>
+    <p class="muted">Confirm each requirement from the staff assessment. All three must be checked before this parent can enter matching. Unconfirmed items can be saved for later review.</p>
+
+    @foreach(\App\Models\ParentMatchingProfile::READINESS_REQUIREMENTS as $field => $label)
+        <div class="parents-switch-row" style="margin-top: 12px;">
+            <label for="{{ $field }}">{{ $label }}</label>
+            <input type="hidden" name="{{ $field }}" value="0">
+            <input type="checkbox" id="{{ $field }}" name="{{ $field }}" value="1"
+                   @checked((bool) old($field, $profile->{$field} ?? false))>
+        </div>
+        @error($field)<div class="parents-error">{{ $message }}</div>@enderror
+    @endforeach
 </div>
 
 <br>

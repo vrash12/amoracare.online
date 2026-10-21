@@ -41,10 +41,8 @@ class ReportController extends Controller
             ->whereBetween('created_at', [$from, $to]);
 
         $donationsQuery = Donation::query()
-            ->whereBetween('donation_date', [
-                $from->toDateString(),
-                $to->toDateString(),
-            ]);
+            ->whereDate('donation_date', '>=', $from->toDateString())
+            ->whereDate('donation_date', '<=', $to->toDateString());
 
         $summary = [
             'total_children' => (clone $childrenQuery)->count(),
@@ -91,7 +89,11 @@ class ReportController extends Controller
                 ->whereIn('donation_type', ['cash', 'mixed'])
                 ->sum('cash_amount'),
 
-            'total_donors' => Donor::count(),
+            'total_donors' => Donor::whereHas('donations', function ($query) use ($from, $to) {
+                $query->whereDate('donation_date', '>=', $from->toDateString())
+                    ->whereDate('donation_date', '<=', $to->toDateString())
+                    ->whereIn('status', ['recorded', 'verified']);
+            })->count(),
 
             'prospective_parents' => User::whereHas('role', function ($query) {
                 $query->where('slug', 'prospective_parent');
@@ -150,10 +152,8 @@ class ReportController extends Controller
             ->get();
 
         $dailyDonations = Donation::query()
-            ->whereBetween('donation_date', [
-                $from->toDateString(),
-                $to->toDateString(),
-            ])
+            ->whereDate('donation_date', '>=', $from->toDateString())
+            ->whereDate('donation_date', '<=', $to->toDateString())
             ->selectRaw('DATE(donation_date) as report_date, COUNT(*) as total, SUM(cash_amount) as cash_total')
             ->groupBy('report_date')
             ->orderBy('report_date')
@@ -273,10 +273,8 @@ class ReportController extends Controller
             ->get();
 
         $recentDonations = Donation::with(['donor', 'items', 'encoder'])
-            ->whereBetween('donation_date', [
-                $from->toDateString(),
-                $to->toDateString(),
-            ])
+            ->whereDate('donation_date', '>=', $from->toDateString())
+            ->whereDate('donation_date', '<=', $to->toDateString())
             ->latest()
             ->take(10)
             ->get();
@@ -694,7 +692,8 @@ class ReportController extends Controller
         $status = $request->input('status');
 
         return Donation::with(['donor', 'items', 'encoder', 'updater'])
-            ->whereBetween('donation_date', [$from->toDateString(), $to->toDateString()])
+            ->whereDate('donation_date', '>=', $from->toDateString())
+            ->whereDate('donation_date', '<=', $to->toDateString())
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($searchQuery) use ($search) {
                     $searchQuery->where('donation_code', 'like', "%{$search}%")

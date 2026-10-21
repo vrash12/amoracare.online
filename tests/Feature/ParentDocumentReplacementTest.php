@@ -10,6 +10,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ParentDocumentReplacementTest extends TestCase
@@ -92,31 +93,160 @@ class ParentDocumentReplacementTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_parent_can_replace_a_verified_document_before_final_racco_approval(): void
+    public function test_parent_can_upload_a_pending_document_only_once(): void
     {
         [$parent, $adoptionCase] = $this->parentAndCase('under_review');
         $document = $this->verifiedDocument($parent, $adoptionCase);
-        $oldPath = $document->file_path;
+        $document->update([
+            'status' => 'pending',
+            'file_path' => null,
+            'original_filename' => null,
+            'uploaded_by' => null,
+            'verified_by' => null,
+            'verified_at' => null,
+        ]);
 
-        Storage::disk('local')->put($oldPath, 'old-file');
+        $this->actingAs($parent)
+            ->post(route('parent.documents.upload', $document), [
+                'file' => UploadedFile::fake()->create('first.pdf', 100, 'application/pdf'),
+            ])
+            ->assertRedirect(route('parent.documents.index'))
+            ->assertSessionHas('success', 'Document uploaded successfully. Please wait for staff verification.');
+
+        $document->refresh();
+
+        $this->assertSame('submitted', $document->status);
+        $this->assertSame('first.pdf', $document->original_filename);
+        $this->assertNull($document->remarks);
+        $this->assertNull($document->verified_by);
+        $this->assertNull($document->verified_at);
+        $this->assertSame($parent->id, $document->uploaded_by);
+        Storage::disk('local')->assertExists($document->file_path);
+
+        $submittedAttributes = $document->getAttributes();
+
+        $this->post(route('parent.documents.upload', $document), [
+            'file' => UploadedFile::fake()->create('second.pdf', 100, 'application/pdf'),
+        ])
+            ->assertRedirect(route('parent.documents.index'))
+            ->assertSessionHas('error');
+
+        $this->assertSame($submittedAttributes, $document->fresh()->getAttributes());
+        $this->assertCount(1, Storage::disk('local')->allFiles());
+    }
+
+    #[DataProvider('documentStatuses')]
+    public function test_parent_cannot_replace_an_existing_file_in_any_status(string $status): void
+    {
+        [$parent, $adoptionCase] = $this->parentAndCase('under_review');
+        $document = $this->verifiedDocument($parent, $adoptionCase);
+        $document->update(['status' => $status]);
+        Storage::disk('local')->put($document->file_path, 'original-file');
+        $originalAttributes = $document->refresh()->getAttributes();
 
         $this->actingAs($parent)
             ->post(route('parent.documents.upload', $document), [
                 'file' => UploadedFile::fake()->create('replacement.pdf', 100, 'application/pdf'),
             ])
             ->assertRedirect(route('parent.documents.index'))
-            ->assertSessionHas('success', 'Document replaced successfully and returned to Submitted status for a new review.');
+            ->assertSessionHas('error');
 
-        $document->refresh();
+        $this->assertSame($originalAttributes, $document->fresh()->getAttributes());
+        $this->assertSame('original-file', Storage::disk('local')->get($document->file_path));
+        $this->assertCount(1, Storage::disk('local')->allFiles());
+    }
 
-        $this->assertSame('submitted', $document->status);
-        $this->assertSame('replacement.pdf', $document->original_filename);
-        $this->assertNull($document->remarks);
-        $this->assertNull($document->verified_by);
-        $this->assertNull($document->verified_at);
-        $this->assertSame($parent->id, $document->uploaded_by);
-        Storage::disk('local')->assertMissing($oldPath);
-        Storage::disk('local')->assertExists($document->file_path);
+    public static function documentStatuses(): array
+    {
+        return array_map(fn (string $status) => [$status], array_keys(AdoptionCaseDocument::STATUSES));
+    }
+
+    public function test_a_missing_submitted_file_does_not_allow_a_new_parent_upload(): void
+    {
+        [$parent, $adoptionCase] = $this->parentAndCase('under_review');
+        $document = $this->verifiedDocument($parent, $adoptionCase);
+        $document->update(['status' => 'submitted', 'file_path' => null]);
+        $originalAttributes = $document->refresh()->getAttributes();
+
+        $this->actingAs($parent)
+            ->post(route('parent.documents.upload', $document), [
+                'file' => UploadedFile::fake()->create('replacement.pdf', 100, 'application/pdf'),
+            ])
+            ->assertRedirect(route('parent.documents.index'))
+            ->assertSessionHas('error');
+
+        $this->assertSame($originalAttributes, $document->fresh()->getAttributes());
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+    }
+
+    public function test_document_page_keeps_details_and_download_but_only_pending_items_can_be_uploaded(): void
+    {
+        [$parent, $adoptionCase] = $this->parentAndCase('under_review');
+        $submitted = $this->verifiedDocument($parent, $adoptionCase);
+        $pending = $this->verifiedDocument($parent, $adoptionCase);
+        $pending->update(['status' => 'pending', 'file_path' => null, 'original_filename' => null]);
+
+        $this->actingAs($parent)
+            ->get(route('parent.documents.index'))
+            ->assertOk()
+            ->assertSee('Details')
+            ->assertSee(route('parent.documents.download', $submitted), false)
+            ->assertSee('data-upload-action="'.route('parent.documents.upload', $pending).'"', false)
+            ->assertDontSee('data-upload-action="'.route('parent.documents.upload', $submitted).'"', false)
+            ->assertDontSee('Replace document')
+            ->assertDontSee('Replace file')
+            ->assertSee('Submitted files cannot be replaced from your account.');
+    }
+
+    public function test_parent_cannot_upload_to_someone_elses_document_or_a_child_requirement(): void
+    {
+        [$parent, $adoptionCase] = $this->parentAndCase('under_review');
+        $document = $this->verifiedDocument($parent, $adoptionCase);
+        $document->update(['status' => 'pending', 'file_path' => null, 'requirement_scope' => 'child']);
+
+        $this->actingAs($parent)
+            ->post(route('parent.documents.upload', $document), [
+                'file' => UploadedFile::fake()->create('file.pdf', 100, 'application/pdf'),
+            ])
+            ->assertForbidden();
+
+        $document->update(['requirement_scope' => 'parent']);
+        $adoptionCase->update(['prospective_parent_id' => $parent->id + 1]);
+
+        $this->post(route('parent.documents.upload', $document), [
+            'file' => UploadedFile::fake()->create('file.pdf', 100, 'application/pdf'),
+        ])->assertForbidden();
+
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+    }
+
+    #[DataProvider('closedCaseStatuses')]
+    public function test_pending_uploads_are_blocked_for_approved_or_closed_cases(string $status, string $raccoStatus): void
+    {
+        [$parent, $adoptionCase] = $this->parentAndCase($raccoStatus);
+        $adoptionCase->update(['status' => $status]);
+        $document = $this->verifiedDocument($parent, $adoptionCase);
+        $document->update(['status' => 'pending', 'file_path' => null]);
+
+        $this->actingAs($parent)
+            ->post(route('parent.documents.upload', $document), [
+                'file' => UploadedFile::fake()->create('first.pdf', 100, 'application/pdf'),
+            ])
+            ->assertRedirect(route('parent.documents.index'))
+            ->assertSessionHas('error');
+
+        $this->assertNull($document->fresh()->file_path);
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+    }
+
+    public static function closedCaseStatuses(): array
+    {
+        return [
+            ['document_collection', 'approved'],
+            ['finalized', 'under_review'],
+            ['closed', 'under_review'],
+            ['cancelled', 'under_review'],
+        ];
     }
 
     public function test_parent_cannot_replace_a_document_after_final_racco_case_approval(): void

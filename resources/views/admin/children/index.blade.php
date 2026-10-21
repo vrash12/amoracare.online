@@ -6,24 +6,6 @@
     $latestMatchingResults = $latestMatchingResults ?? collect();
     $visibleChildren = $children->getCollection();
 
-    $readyForMatchingCount = $visibleChildren
-        ->filter(fn ($child) =>
-            $child->case_status === 'available_for_adoption'
-            && $child->adoption_eligibility_status === 'eligible'
-        )
-        ->count();
-
-    $withRecommendationCount = $visibleChildren
-        ->filter(fn ($child) => $latestMatchingResults->has($child->id))
-        ->count();
-
-    $attentionCount = $visibleChildren
-        ->filter(fn ($child) =>
-            $child->case_status === 'inactive'
-            || in_array($child->adoption_eligibility_status, ['not_eligible', 'pending_documents'], true)
-        )
-        ->count();
-
     $queryParams = request()->except('page');
 
     $hasFilters = filled($search ?? null)
@@ -531,11 +513,11 @@
     <section class="children-stats">
         <article class="children-stat">
             <div class="children-stat-top">
-                <span class="children-stat-label">Visible on page</span>
+                <span class="children-stat-label">Total child profiles</span>
                 <span class="children-stat-icon"><i class="bi bi-people"></i></span>
             </div>
-            <div class="children-stat-value">{{ $visibleChildren->count() }}</div>
-            <div class="children-stat-help">Profiles in the current paginated result</div>
+            <div class="children-stat-value">{{ number_format($childSummary['total']) }}</div>
+            <div class="children-stat-help">All child profiles across every page</div>
         </article>
 
         <article class="children-stat ready">
@@ -543,8 +525,8 @@
                 <span class="children-stat-label">Ready for matching</span>
                 <span class="children-stat-icon"><i class="bi bi-check2-circle"></i></span>
             </div>
-            <div class="children-stat-value">{{ $readyForMatchingCount }}</div>
-            <div class="children-stat-help">Eligible and available for adoption</div>
+            <div class="children-stat-value">{{ number_format($childSummary['ready_for_matching']) }}</div>
+            <div class="children-stat-help">Eligible, available, and without an active case</div>
         </article>
 
         <article class="children-stat match">
@@ -552,8 +534,8 @@
                 <span class="children-stat-label">With recommendation</span>
                 <span class="children-stat-icon"><i class="bi bi-stars"></i></span>
             </div>
-            <div class="children-stat-value">{{ $withRecommendationCount }}</div>
-            <div class="children-stat-help">Profiles with a latest matching result</div>
+            <div class="children-stat-value">{{ number_format($childSummary['with_recommendation']) }}</div>
+            <div class="children-stat-help">All profiles with a matching result</div>
         </article>
 
         <article class="children-stat attention">
@@ -561,7 +543,7 @@
                 <span class="children-stat-label">Need attention</span>
                 <span class="children-stat-icon"><i class="bi bi-exclamation-circle"></i></span>
             </div>
-            <div class="children-stat-value">{{ $attentionCount }}</div>
+            <div class="children-stat-value">{{ number_format($childSummary['needs_attention']) }}</div>
             <div class="children-stat-help">Inactive, ineligible, or pending requirements</div>
         </article>
     </section>

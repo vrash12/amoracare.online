@@ -955,7 +955,7 @@
 
                                     @if($document->verified_at)
                                         <div class="small-muted">
-                                            Verified on {{ $document->verified_at?->format('M d, Y h:i A') }}
+                                            Verified on {{ $document->verified_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') }}
                                         </div>
                                     @endif
 
@@ -1195,7 +1195,7 @@
                         {{ $note->note_type_label }}
                         · {{ $note->visibility_label }}
                         · {{ $note->creator?->name ?? 'N/A' }}
-                        · {{ $note->created_at?->format('M d, Y h:i A') }}
+                        · {{ $note->created_at?->copy()->timezone(config('app.display_timezone', 'Asia/Manila'))->format('M d, Y h:i A \P\H\T') }}
                     </div>
 
                     <div class="note-body">

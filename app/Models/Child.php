@@ -4,8 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Child extends Model
 {
@@ -29,6 +29,7 @@ class Child extends Model
         'educational_level',
         'school_name',
         'is_special_needs',
+        'special_needs_categories',
         'background_summary',
         'remarks',
         'photo_path',
@@ -40,6 +41,7 @@ class Child extends Model
         'date_of_birth' => 'date',
         'admission_date' => 'date',
         'is_special_needs' => 'boolean',
+        'special_needs_categories' => 'array',
     ];
 
     public const CASE_STATUSES = [
@@ -57,6 +59,12 @@ class Child extends Model
         'pending_documents' => 'Pending Documents',
         'eligible' => 'Eligible',
         'not_eligible' => 'Not Eligible',
+    ];
+
+    public const SPECIAL_NEEDS_CATEGORIES = [
+        'developmental_intellectual_disability' => 'Developmental and intellectual disability',
+        'behavioural_emotional_disorder' => 'Behavioural and emotional disorder',
+        'sensory_impairment' => 'Sensory impairment',
     ];
 
     public function creator(): BelongsTo
@@ -89,7 +97,12 @@ class Child extends Model
     }
 
     public function adoptionCases(): HasMany
-{
-    return $this->hasMany(AdoptionCase::class);
-}
+    {
+        return $this->hasMany(AdoptionCase::class);
+    }
+
+    public function matchingResults(): HasMany
+    {
+        return $this->hasMany(AdoptionMatchingResult::class);
+    }
 }

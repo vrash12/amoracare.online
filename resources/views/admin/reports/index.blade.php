@@ -670,13 +670,12 @@
 
             <article class="reports-stat is-purple">
                 <div class="reports-stat-top">
-                    <span class="reports-stat-label">Registered donors</span>
+                    <span class="reports-stat-label">Donors in date range</span>
                     <span class="reports-stat-icon"><i class="bi bi-heart"></i></span>
                 </div>
                 <div class="reports-stat-value">{{ number_format($totalDonors) }}</div>
                 <div class="reports-stat-help">
-                    {{ number_format((int) ($summary['prospective_parents'] ?? 0)) }} prospective parents ·
-                    {{ number_format((int) ($summary['external_reviewers'] ?? 0)) }} reviewers
+                    Distinct donors with recorded or verified donations in the selected dates
                 </div>
             </article>
         </section>
