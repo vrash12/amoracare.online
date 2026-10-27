@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Rules\AvailableAccountEmail;
 use App\Services\EmailVerificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class ProspectiveParentApplicationController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'email' => ['required', 'email', 'max:255', new AvailableAccountEmail],
             'phone_number' => ['required', 'string', 'max:50'],
             'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
             'preferred_child_sex' => ['required', Rule::in(['any', 'male', 'female'])],

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Rules\AvailableAccountEmail;
 use App\Services\UserAccountStatusService;
 use App\Support\PersonName;
 use Illuminate\Http\RedirectResponse;
@@ -86,11 +87,12 @@ class UserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $this->authorizeAdmin();
+        $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
         $nameParts = $this->validateName($request);
 
         $validated = $request->validate([
             'role_id' => ['required', Rule::exists('roles', 'id')->whereNot('slug', 'admin')],
-            'email' => ['required', 'email', 'max:150', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:150', new AvailableAccountEmail],
             'phone_number' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],
             'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
@@ -130,6 +132,7 @@ class UserController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {
         $this->authorizeAdmin();
+        $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
         $nameParts = $this->validateName($request);
 
         $validated = $request->validate([
@@ -140,7 +143,7 @@ class UserController extends Controller
                 'required',
                 'email',
                 'max:150',
-                Rule::unique('users', 'email')->ignore($user->id),
+                new AvailableAccountEmail($user->id),
             ],
             'phone_number' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],

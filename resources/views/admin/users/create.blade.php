@@ -95,7 +95,7 @@
                     >
 
                     <small style="color:#667085;">
-                        The user will receive a new six-digit email OTP at every sign-in.
+                        The user signs in with this email address and password. A deleted account’s email can be reused.
                     </small>
 
                     @error('email')

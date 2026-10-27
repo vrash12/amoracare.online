@@ -278,7 +278,7 @@ class EmailVerificationController extends Controller
 
         $email = strtolower(trim((string) $data['email']));
 
-        if (User::query()->where('email', $email)->exists()) {
+        if (User::withTrashed()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->exists()) {
             $this->clearVerificationSession($request);
 
             return redirect()
@@ -329,7 +329,7 @@ class EmailVerificationController extends Controller
                 return $parent;
             });
         } catch (QueryException $exception) {
-            if (User::query()->where('email', $email)->exists()) {
+            if (User::withTrashed()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->exists()) {
                 $this->clearVerificationSession($request);
 
                 return redirect()

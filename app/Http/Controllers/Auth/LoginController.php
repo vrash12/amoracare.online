@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\EmailVerificationService;
 use App\Services\UserAccountStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,8 +23,7 @@ class LoginController extends Controller
 
     public function login(
         Request $request,
-        UserAccountStatusService $accountStatusService,
-        EmailVerificationService $emailVerificationService
+        UserAccountStatusService $accountStatusService
     ): RedirectResponse {
         $request->merge([
             'email' => strtolower(trim((string) $request->input('email'))),
@@ -67,9 +65,9 @@ class LoginController extends Controller
             ]);
         }
 
-        if ($user->status === User::STATUS_PENDING && $user->email_verified_at) {
+        if ($user->status === User::STATUS_PENDING) {
             throw ValidationException::withMessages([
-                'email' => 'Your email is verified, but your account is still pending administrator approval.',
+                'email' => 'Your account is pending administrator approval.',
             ]);
         }
 
@@ -88,66 +86,26 @@ class LoginController extends Controller
             ]);
         }
 
-        $purpose = $user->email_verified_at ? 'login' : 'email_confirmation';
-
-        if ($purpose === 'login' && $user->status !== User::STATUS_ACTIVE) {
-            $message = 'Your account is pending administrator approval.';
-
+        $dashboardRoute = config("auth.role_dashboards.{$roleSlug}");
+        if (! is_string($dashboardRoute) || $dashboardRoute === '') {
             throw ValidationException::withMessages([
-                'email' => $message,
+                'email' => 'Your account dashboard is not configured. Please contact the administrator.',
             ]);
         }
 
-        $existingChallenge = [];
-
-        if (
-            (int) $request->session()->get('email_verification_user_id') === (int) $user->id
-            && $request->session()->get('email_verification_purpose') === $purpose
-            && is_array($request->session()->get('email_verification_challenge'))
-        ) {
-            $existingChallenge = $request->session()->get('email_verification_challenge');
-        }
-
-        try {
-            $challengeResult = $emailVerificationService->resendPendingChallenge(
-                $existingChallenge,
-                $user->name,
-                $user->email,
-                $purpose
-            );
-        } catch (\RuntimeException $exception) {
-            $request->session()->forget([
-                'email_verification_user_id',
-                'email_verification_remember',
-                'email_verification_purpose',
-                'email_verification_guard',
-                'email_verification_challenge',
-            ]);
-
-            throw ValidationException::withMessages([
-                'email' => $exception->getMessage(),
-            ]);
-        }
-
-        $request->session()->forget('pending_parent_registration');
-        $request->session()->put([
-            'email_verification_user_id' => $user->id,
-            'email_verification_remember' => $request->boolean('remember'),
-            'email_verification_purpose' => $purpose,
-            'email_verification_guard' => $guard,
-            'email_verification_challenge' => $challengeResult['challenge'],
+        Auth::guard($guard)->login($user, $request->boolean('remember'));
+        Auth::shouldUse($guard);
+        $request->session()->regenerate();
+        $request->session()->forget([
+            'pending_parent_registration', 'email_verification_user_id',
+            'email_verification_remember', 'email_verification_purpose',
+            'email_verification_guard', 'email_verification_challenge',
         ]);
+        $request->session()->put('active_auth_guard', $guard);
+        $request->session()->put('account_password_hash.'.$guard.'.'.$user->getKey(), $user->password);
+        $user->update(['last_login_at' => now()]);
 
-        return redirect()
-            ->route('email.verification.notice')
-            ->with(
-                'success',
-                $challengeResult['sent']
-                    ? ($purpose === 'email_confirmation'
-                        ? 'A verification OTP was sent to confirm that your email address is legitimate.'
-                        : 'A login OTP was sent to your email address.')
-                    : 'An OTP was sent recently. Check your inbox or wait before requesting another.'
-            );
+        return redirect()->route($dashboardRoute)->with('success', 'You are now logged in.');
     }
 
     public function logout(Request $request): RedirectResponse

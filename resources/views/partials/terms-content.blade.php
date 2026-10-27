@@ -14,7 +14,7 @@
         <{{ $termsHeadingTag }}>2. Account eligibility and security</{{ $termsHeadingTag }}>
         <ul>
             <li>You must provide accurate, current, and complete information and use an email address that you are authorized to access.</li>
-            <li>You must complete the required email verification before registration or login is completed.</li>
+            <li>Public registration requires email verification. Sign in using your email address and password after your account is activated.</li>
             <li>You are responsible for protecting your password and one-time verification codes and for all authorized activity performed through your account.</li>
             <li>If an administrator gives you a temporary password, you must replace it with your own password before accessing your portal. You can change it later using the Change password option.</li>
             <li>You must not share credentials, impersonate another person, or attempt to use a role or case access that has not been assigned to you.</li>

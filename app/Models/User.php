@@ -4,6 +4,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ReleasesDeletedEmail;
 use App\Support\PersonName;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -17,7 +18,9 @@ use Illuminate\Support\Facades\Schema;
 
 class User extends Authenticatable
 {
-    use Notifiable, SoftDeletes;
+    use Notifiable, ReleasesDeletedEmail, SoftDeletes {
+        ReleasesDeletedEmail::runSoftDelete insteadof SoftDeletes;
+    }
 
     public const STATUS_ACTIVE = 'active';
 
@@ -43,6 +46,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'deleted_email',
     ];
 
     protected $casts = [

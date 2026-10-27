@@ -33,7 +33,7 @@
                 value="{{ old('email', $parent->email) }}"
                 required
             >
-            <div class="muted">A new six-digit email OTP is required at every sign-in.</div>
+            <div class="muted">Sign in with this email address and password. A deleted account’s email can be reused.</div>
             @error('email')
                 <div class="parents-error">{{ $message }}</div>
             @enderror

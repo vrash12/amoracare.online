@@ -80,9 +80,9 @@ class MultiRoleSessionTest extends TestCase
         $parent = $this->createUser('prospective_parent', 'parent@example.com');
         $reviewer = $this->createUser('external_reviewer', 'reviewer@example.com');
 
-        $this->completeOtpLogin($admin, 'admin', 'admin.dashboard');
-        $this->completeOtpLogin($parent, 'prospective_parent', 'parent.dashboard');
-        $this->completeOtpLogin($reviewer, 'external_reviewer', 'reviewer.dashboard');
+        $this->completePasswordLogin($admin, 'admin', 'admin.dashboard');
+        $this->completePasswordLogin($parent, 'prospective_parent', 'parent.dashboard');
+        $this->completePasswordLogin($reviewer, 'external_reviewer', 'reviewer.dashboard');
 
         $this->assertAuthenticatedAs($admin, 'admin');
         $this->assertAuthenticatedAs($parent, 'prospective_parent');
@@ -96,19 +96,14 @@ class MultiRoleSessionTest extends TestCase
         $this->assertAuthenticatedAs($reviewer, 'external_reviewer');
     }
 
-    private function completeOtpLogin(User $user, string $guard, string $dashboardRoute): void
+    private function completePasswordLogin(User $user, string $guard, string $dashboardRoute): void
     {
         $this->post(route('login.store'), [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertRedirect(route('email.verification.notice'));
-
-        $this->assertNotEmpty($this->sentCodes[$user->email] ?? null);
-
-        $this->post(route('email.verification.verify'), [
-            'code' => $this->sentCodes[$user->email],
         ])->assertRedirect(route($dashboardRoute));
 
+        Http::assertNothingSent();
         $this->assertAuthenticatedAs($user, $guard);
     }
 

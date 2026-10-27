@@ -414,7 +414,7 @@ class ParentAiGuidanceController extends Controller
                 'title' => 'Email Verification',
                 'description' => 'Use or resend your one-time code',
                 'question' => 'What should I do if I do not receive the verification code?',
-                'answer' => 'Check your registered email address and Spam or Junk folder. Wait until the resend option becomes available, then select Resend code. Use the latest code before it expires and never share it with anyone. AmoraCare sends a verification code during registration and login.',
+                'answer' => 'Check your registered email address and Spam or Junk folder. Wait until the resend option becomes available, then select Resend code. Use the latest code before it expires and never share it with anyone. AmoraCare sends a verification code during public registration. Sign-in uses your email address and password.',
                 'icon' => 'bi-envelope-check',
                 'class' => 'is-status',
                 'match_phrases' => ['otp not received', 'verification code not received', 'resend verification code', 'email code'],

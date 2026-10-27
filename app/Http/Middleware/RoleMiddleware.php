@@ -36,16 +36,6 @@ class RoleMiddleware
                 ->with('error', 'Your account is inactive or pending administrator approval.');
         }
 
-        if (! $user->email_verified_at) {
-            $this->logoutCurrentGuard($request);
-            $request->session()->regenerate(true);
-            $request->session()->regenerateToken();
-
-            return redirect()
-                ->route('login')
-                ->with('error', 'Sign in again to verify your email address.');
-        }
-
         if (! in_array($user->role->slug, $roles, true)) {
             abort(403, 'You do not have permission to access this page.');
         }

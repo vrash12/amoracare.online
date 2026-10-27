@@ -1,4 +1,5 @@
 <?php
+
 // app/Http/Controllers/Admin/ParentController.php
 
 namespace App\Http\Controllers\Admin;
@@ -8,6 +9,7 @@ use App\Models\AdoptionMatchingResult;
 use App\Models\ParentMatchingProfile;
 use App\Models\Role;
 use App\Models\User;
+use App\Rules\AvailableAccountEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -72,25 +74,25 @@ class ParentController extends Controller
             ->withQueryString();
 
         $totalParentsCount = User::whereHas('role', function ($query) {
-                $query->where('slug', 'prospective_parent');
-            })
+            $query->where('slug', 'prospective_parent');
+        })
             ->count();
 
         $activeParentsCount = User::whereHas('role', function ($query) {
-                $query->where('slug', 'prospective_parent');
-            })
+            $query->where('slug', 'prospective_parent');
+        })
             ->where('status', 'active')
             ->count();
 
         $withProfileCount = User::whereHas('role', function ($query) {
-                $query->where('slug', 'prospective_parent');
-            })
+            $query->where('slug', 'prospective_parent');
+        })
             ->whereHas('matchingProfile')
             ->count();
 
         $homeStudyVerifiedCount = User::whereHas('role', function ($query) {
-                $query->where('slug', 'prospective_parent');
-            })
+            $query->where('slug', 'prospective_parent');
+        })
             ->whereHas('matchingProfile', function ($query) {
                 $query->where('home_study_verified', true);
             })
@@ -245,7 +247,7 @@ class ParentController extends Controller
                 'status' => $validated['status'],
             ];
 
-            if (!empty($validated['password'])) {
+            if (! empty($validated['password'])) {
                 $parentData['password'] = Hash::make($validated['password']);
                 if (Schema::hasColumn('users', 'must_change_password')) {
                     $parent->forceFill(['must_change_password' => true]);
@@ -287,6 +289,7 @@ class ParentController extends Controller
 
     private function validateParent(Request $request, ?User $parent = null): array
     {
+        $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
         $isUpdate = $parent !== null;
 
         return $request->validate([
@@ -295,7 +298,7 @@ class ParentController extends Controller
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->ignore($parent?->id),
+                new AvailableAccountEmail($parent?->id),
             ],
             'phone_number' => ['nullable', 'string', 'max:50'],
             'status' => ['required', Rule::in(['active', 'inactive', 'pending'])],
@@ -344,7 +347,7 @@ class ParentController extends Controller
 
     private function ensureProspectiveParent(User $parent): void
     {
-        if (!$parent->hasRole('prospective_parent')) {
+        if (! $parent->hasRole('prospective_parent')) {
             abort(404);
         }
     }

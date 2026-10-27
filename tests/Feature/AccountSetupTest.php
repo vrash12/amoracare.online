@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -252,6 +253,20 @@ class AccountSetupTest extends TestCase
         ])->assertSessionHasNoErrors()->assertRedirect(route('admin.users.index'));
 
         $this->assertSame('Maria Santos', User::where('email', 'legacy-parent@example.com')->firstOrFail()->name);
+    }
+
+    #[DataProvider('portals')]
+    public function test_unverified_active_accounts_sign_in_without_otp_and_still_require_password_setup(string $guard, string $prefix): void
+    {
+        Http::fake();
+        $user = $this->user($guard, ['email_verified_at' => null, 'must_change_password' => true]);
+        $this->post(route('login.store'), [
+            'email' => strtoupper($user->email), 'password' => 'TemporaryPass123!',
+        ])->assertSessionHasNoErrors()->assertRedirect(route("{$prefix}.dashboard"));
+        $this->assertAuthenticatedAs($user, $guard);
+        $this->get(route("{$prefix}.test.protected"))->assertRedirect(route("{$prefix}.account.security"));
+        $this->assertNull($user->fresh()->email_verified_at);
+        Http::assertNothingSent();
     }
 
     private function user(string $guard, array $attributes = []): User
