@@ -25,3 +25,14 @@ Production uses a single `web` authentication guard and already has password-onl
 The production patch normalizes login emails, preserves its existing password login, refreshes the password-session marker, adds the same five-attempt-per-minute login limit, updates stale OTP instructions, and applies the email changes to both administrative account forms.
 
 The private release directory holds original file backups and a database snapshot. Deployment checks source hashes, verifies the staged patch, enters maintenance, runs only the targeted migration, replaces the reviewed files, clears routes/views, compiles views, verifies deployed behavior, compares existing records against the snapshot, and brings the application back online. No environment or vendor files are deployed.
+
+## Completed production deployment
+
+- Source commit: `5ef5c1a` (pushed to `origin/main`).
+- Private release: `/home/u330835917/deployments/login-email-20261028`.
+- Targeted migration completed successfully; 16 previously deleted account emails were released.
+- All ten deployed files passed PHP syntax checks and manifest hash verification. Staged and deployed behavior each passed 29 isolated assertions using the server runtime.
+- Database comparison confirmed all 72 account rows remain. Existing account changes were limited to the intended email normalization/archive and deleted-account remember-token clearing. Child, parent profile, case, document, matching, and donation data matched the pre-deployment snapshot exactly.
+- Views compiled, route/view caches refreshed, queue restart signaled, and maintenance mode ended successfully.
+- Public HTTPS checks: home and login returned HTTP 200; login contains email/password inputs and no OTP input.
+- Verification used isolated test records, not real users' credentials. Backups and the deployment manifest remain outside the public web directory.
