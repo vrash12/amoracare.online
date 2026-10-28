@@ -17,6 +17,7 @@ class ParentAiGuidancePrivacyTest extends TestCase
         parent::setUp();
 
         config([
+            'services.legal_guidance.enabled' => true,
             'services.legal_guidance.url' => 'https://legal-guidance.test/api/ask',
             'services.legal_guidance.api_key' => 'test-internal-key',
         ]);
@@ -402,6 +403,21 @@ class ParentAiGuidancePrivacyTest extends TestCase
             ->assertSessionMissing($this->historyKey($firstParent))
             ->assertSessionMissing('parent_ai_messages')
             ->assertSessionHas($this->historyKey($secondParent), $secondHistory);
+    }
+
+    public function test_disconnected_backend_never_receives_questions_even_when_ai_is_requested(): void
+    {
+        config(['services.legal_guidance.enabled' => false]);
+        Http::fake();
+        $this->actingAs($this->createParent('faq.only@example.com'));
+        $this->postJson(route('parent.ai.chat'), ['message' => 'Explain my private case', 'use_ai' => true])
+            ->assertOk()->assertJsonPath('answer_type', 'faq_only');
+        $page = $this->get(route('parent.ai.index'))->assertOk()->assertDontSee('Need more help? Ask AI');
+        foreach ($page->viewData('frequentlyAskedQuestions') as $faq) {
+            $this->postJson(route('parent.ai.chat'), ['faq_id' => $faq['id']])
+                ->assertOk()->assertJsonPath('reply', $faq['answer']);
+        }
+        Http::assertNothingSent();
     }
 
     private function createParent(string $email): User

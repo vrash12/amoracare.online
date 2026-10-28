@@ -15,6 +15,7 @@ return [
     */
 
     'legal_guidance' => [
+        'enabled' => false,
         'url' => env(
             'LEGAL_GUIDANCE_API_URL',
             'http://127.0.0.1:8001/api/legal-guidance/ask/'

@@ -42,8 +42,8 @@ class ParentAiGuidanceController extends Controller
                 ? array_slice($chatMessages, -12)
                 : [],
             'defaultGreeting' => $adoptionCase
-                ? 'Welcome back! Select a topic and question for a quick answer, or type your own question. If the FAQ cannot help, the AI assistant will take over.'
-                : 'Hello! Select a topic and question for a quick answer, or type your own question. If the FAQ cannot help, the AI assistant will take over.',
+                ? 'Welcome back! Select a topic and question for a quick answer, or type your own question. For other questions, contact AmoraCare staff.'
+                : 'Hello! Select a topic and question for a quick answer, or type your own question. For other questions, contact AmoraCare staff.',
         ]);
     }
 
@@ -79,10 +79,19 @@ class ParentAiGuidanceController extends Controller
         ]);
 
         $userMessage = $validated['message'];
-        $faq = ($validated['use_ai'] ?? false) ? null : $this->matchFrequentlyAskedQuestion($userMessage);
+        $aiEnabled = config('services.legal_guidance.enabled', false);
+        $faq = ($aiEnabled && ($validated['use_ai'] ?? false)) ? null : $this->matchFrequentlyAskedQuestion($userMessage);
 
         if ($faq) {
             return $this->approvedFaqResponse($faq, $userMessage);
+        }
+
+        if (! $aiEnabled) {
+            return response()->json([
+                'reply' => 'Please select a saved FAQ from the menu. For questions about your own application or questions not covered here, contact AmoraCare staff or your assigned social worker.',
+                'sources' => [],
+                'answer_type' => 'faq_only',
+            ]);
         }
 
         $legalGuidanceUrl = config('services.legal_guidance.url');
@@ -218,7 +227,7 @@ class ParentAiGuidanceController extends Controller
             'title' => 'AmoraCare FAQ',
             'source' => 'AmoraCare FAQ',
         ]];
-        $disclaimer = 'Predefined FAQ answer. Select Need more help? Ask AI if this does not answer your question.';
+        $disclaimer = 'Saved FAQ answer. Contact AmoraCare staff if this does not answer your question.';
 
         $history[] = [
             'role' => 'user',
@@ -566,7 +575,7 @@ class ParentAiGuidanceController extends Controller
                 'title' => 'Need More Help?',
                 'description' => 'Use AI guidance only when you need it',
                 'question' => 'What if these FAQs do not answer my question?',
-                'answer' => 'Select Need more help? Ask AI or type your question. The assistant will provide guidance within its available information and access permissions. For official decisions or unresolved account problems, contact AmoraCare staff.',
+                'answer' => 'Select another saved FAQ from the menu. If your question is not covered, contact AmoraCare staff or your assigned social worker.',
                 'icon' => 'bi-chat-dots',
                 'class' => 'is-support',
                 'match_phrases' => ['how do i ask the ai', 'how to ask the ai'],

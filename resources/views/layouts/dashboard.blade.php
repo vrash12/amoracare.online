@@ -200,7 +200,7 @@
                         <span class="nav-icon">
                             <i class="bi bi-chat-square-text"></i>
                         </span>
-                        <span class="nav-text">AI Legal Guidance</span>
+                        <span class="nav-text">Adoption FAQs</span>
                     </a>
                 @endif
 

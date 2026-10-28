@@ -1,4 +1,4 @@
-@extends('layouts.dashboard', ['title' => 'AI Legal Guidance'])
+@extends('layouts.dashboard', ['title' => 'Adoption FAQs'])
 {{-- laravel-app/resources/views/parent/ai/index.blade.php --}}
 
 @section('content')
@@ -1274,7 +1274,7 @@
         </section>
 
         <div class="ai-workspace">
-            <aside class="ai-sidebar" aria-label="AI guidance help and suggested questions">
+            <aside class="ai-sidebar" aria-label="Saved FAQ help and suggested questions">
                 <section class="ai-side-card">
                     <h2 class="ai-side-title">
                         <i class="bi bi-question-circle" aria-hidden="true"></i>
@@ -1394,8 +1394,7 @@
                     </div>
                     <div class="ai-faq-fallback">
                         <strong>Need a different answer?</strong>
-                        Type your question below. AmoraCare checks saved FAQs first and uses AI only when needed.
-                        After a saved answer, you can also select “Need more help? Ask AI”.
+                        Type a question to search the saved FAQs, or choose a question from the menu. For personal application concerns, contact AmoraCare staff.
                     </div>
                 </section>
 
@@ -1406,7 +1405,7 @@
                         role="log"
                         aria-live="polite"
                         aria-relevant="additions text"
-                        aria-label="AI guidance conversation"
+                        aria-label="Saved FAQ conversation"
                         tabindex="0"
                     ></div>
 
@@ -1928,14 +1927,6 @@
                         anotherQuestionButton.textContent = "Ask another question";
                         anotherQuestionButton.disabled = isSending;
                         actionsDiv.appendChild(anotherQuestionButton);
-
-                        const askAiButton = document.createElement("button");
-                        askAiButton.type = "button";
-                        askAiButton.className = "ai-action-btn";
-                        askAiButton.dataset.faqEscalate = String(index);
-                        askAiButton.textContent = "Need more help? Ask AI";
-                        askAiButton.disabled = isSending;
-                        actionsDiv.appendChild(askAiButton);
                     }
                     messageDiv.appendChild(actionsDiv);
 
@@ -2212,7 +2203,7 @@
                 if (data.answer_type === "approved_faq") {
                     showStatus("Answer from AmoraCare FAQs.", "success");
                 } else {
-                    showStatus("AI guidance answer.");
+                    showStatus("Please choose a saved FAQ or contact staff.");
                 }
 
                 await typeAssistantReply(
